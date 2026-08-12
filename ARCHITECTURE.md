@@ -39,6 +39,10 @@ src/
   rules.rs                FragmentRule / RuleTarget / RuleExpectation + built_in_rules()
                            (loads rules/dna_adduct_fragments.json via include_str!)
   ranking.rs              Ranker (deterministic weighted aggregation) + explain()
+  reference_spectrum.rs   ReferenceSpectrum, ReferencePeak — versioned reference-
+                           spectrum data fed to SpectralLibraryEvidenceEvaluator
+                           (same shape/role as rules.rs: external domain knowledge
+                           owned by the evaluator, not the candidate)
   model/
     mod.rs
     numeric.rs            FiniteF64, NonNegativeF64 (validated newtypes)
@@ -53,6 +57,8 @@ src/
     mass.rs                Mass + PrecursorConsistency evaluator
     fragment.rs             DiagnosticFragment + NeutralLoss evaluator (rule-driven)
     isotope.rs               IsotopeLabel evaluator (Phase 5)
+    spectral_library.rs       SpectralLibraryMatch evaluator (cosine similarity +
+                               matched-peak fraction vs. a ReferenceSpectrum, 0.2.0)
   bin/
     adductra.rs           CLI (`rank` / `explain`), thin wrapper over the library API
 
@@ -127,4 +133,14 @@ tests/
   has stabilized.
 - **No panics in library code.** All fallible paths return
   `Result<_, AdductraError>`. `unwrap`/`expect`/`panic!` are forbidden
-  outside of tests (`#![forbid(...)]` where practical).
+  outside of tests (`#![forbid(...)]` where practical). Note:
+  `#[deny(clippy::panic)]` catches `panic!()` even inside `#[cfg(test)]`
+  modules (only `unwrap`/`expect` are test-allowlisted) — use `assert!`/
+  `matches!` in tests, not `panic!()` in an `else` branch.
+- **`EvidenceKind` and `EvidenceDetail` are `#[non_exhaustive]`** (since
+  0.2.0): new evidence types are expected, purely additive crate growth
+  (§9), not something that should force a breaking release for every
+  downstream exhaustive `match`. This only affects matching from *outside*
+  the crate — internal code (e.g. `ranking.rs::render_detail`) still
+  matches exhaustively with no wildcard arm, so the compiler still forces
+  every internal call site to handle a newly added variant.

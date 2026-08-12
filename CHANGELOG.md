@@ -5,6 +5,42 @@ All notable changes to Adductra are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/);
 versioning follows [Semantic Versioning](https://semver.org/).
 
+## [0.2.0] - 2026-08-12
+
+### Added
+
+- Spectral-library-matching evidence: `SpectralLibraryEvidenceEvaluator`
+  compares an observation's product ions against a candidate's known
+  reference spectrum (`ReferenceSpectrum`/`ReferencePeak`) via cosine
+  similarity (sqrt-intensity-transformed, greedy 1:1 peak matching) and
+  matched-peak fraction — a holistic spectrum-vs-spectrum comparison,
+  distinct from `FragmentEvidenceEvaluator`'s single-peak checks. No new
+  dependency. `EvidenceSource::Predicted` references are capped at
+  `Moderate` contradicting strength, never `Strong` (predicted evidence
+  must not look as authoritative as experimental, `AGENTS.md` §26).
+- `Provenance.parameters` now commonly carries `collision_energy` and
+  `instrument` for spectral-match evidence, sourced from
+  `ReferenceSpectrum::with_collision_energy`/`with_instrument`.
+
+### Changed
+
+- **Breaking**: `EvidenceKind` gained a new variant
+  (`SpectralLibraryMatch`) and is now `#[non_exhaustive]`; `EvidenceDetail`
+  likewise gained `SpectralLibraryMatch { .. }` and is now
+  `#[non_exhaustive]`. Existing JSON serialized by 0.1.0 still
+  deserializes unchanged (purely additive at the wire level); only
+  exhaustive `match` expressions on these two enums in downstream code
+  need a wildcard arm.
+
+### Notes
+
+- Investigated bulk-ingesting DNA Adduct Portal data to grow the
+  benchmark corpus (per external review feedback) — not pursued: its
+  structured spectral dataset is CC BY-NC 4.0, incompatible with
+  embedding into this MIT/Apache-2.0 crate. The La Barbera et al. GitLab
+  database (CC BY 4.0, verified live) is a safe alternative for a future
+  round. See `ROADMAP.md` discovered work.
+
 ## [0.1.0] - 2026-08-12
 
 ### Added

@@ -12,7 +12,7 @@ pub use assessment::{AdductReport, CandidateAssessment};
 pub use candidate::{AdductCandidate, NucleobaseOrigin};
 pub use evidence::{
     Evidence, EvidenceDetail, EvidenceDirection, EvidenceKind, EvidenceSet, EvidenceStrength,
-    MissingReason,
+    MissingReason, SpectralSimilarityMetric,
 };
 pub use numeric::{FiniteF64, NonNegativeF64};
 pub use observation::{IonAdductType, IsotopeLabel, Observation, ProductIon};

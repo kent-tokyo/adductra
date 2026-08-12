@@ -187,6 +187,23 @@ fn render_detail(detail: &EvidenceDetail, matched: bool) -> String {
                 format!("expected isotope shift for {label_count} labelled atom(s) not observed")
             }
         }
+        EvidenceDetail::SpectralLibraryMatch {
+            cosine_similarity,
+            matched_peak_fraction,
+            matched_peak_count,
+            reference_peak_count,
+            ..
+        } => match cosine_similarity {
+            Some(cosine) => format!(
+                "cosine similarity {:.3} ({matched_peak_count}/{reference_peak_count} reference peaks matched, {:.0}%)",
+                cosine.get(),
+                matched_peak_fraction.get() * 100.0
+            ),
+            None => format!(
+                "{matched_peak_count}/{reference_peak_count} reference peaks matched ({:.0}%), no intensity data for cosine",
+                matched_peak_fraction.get() * 100.0
+            ),
+        },
         EvidenceDetail::Generic { expected, observed } => match observed {
             Some(obs) => format!("expected {expected}, observed {obs}"),
             None => format!("expected {expected}"),

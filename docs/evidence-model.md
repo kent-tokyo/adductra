@@ -21,7 +21,11 @@ AdductReport          observation_id + ranked CandidateAssessments + provenance
 There is deliberately no `f64 score` field anywhere in `Evidence` — every
 evaluator returns typed [`EvidenceDetail`] variants (`Mass`,
 `PrecursorConsistency`, `DiagnosticFragment`, `NeutralLoss`,
-`IsotopeLabel`, `Generic`) carrying expected/observed/delta/tolerance.
+`IsotopeLabel`, `SpectralLibraryMatch`, `Generic`) carrying
+expected/observed/delta/tolerance. `EvidenceKind` and `EvidenceDetail` are
+`#[non_exhaustive]` as of 0.2.0 — new evidence types are expected,
+additive growth (§9), not a breaking change for callers who already
+handle the wildcard case in their own matches.
 
 ## Direction, strength, and the absence-of-evidence rule
 

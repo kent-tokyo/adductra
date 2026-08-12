@@ -13,6 +13,12 @@ use crate::error::AdductraError;
 /// new rule-driven evidence type that doesn't yet warrant a first-class
 /// variant (`AGENTS.md` §9: new evidence types must not require breaking
 /// existing evaluators).
+///
+/// `#[non_exhaustive]` since 0.2.0: new evidence kinds are an expected,
+/// purely additive part of this crate's growth (§9) — external exhaustive
+/// matches need a wildcard arm so a future variant doesn't force a
+/// breaking release for callers too.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum EvidenceKind {
     Mass,
@@ -22,6 +28,9 @@ pub enum EvidenceKind {
     IsotopeLabel,
     NucleobaseNucleosideOrigin,
     StructuralPlausibility,
+    /// Spectrum-vs-reference-spectrum similarity — see
+    /// [`crate::evidence::SpectralLibraryEvidenceEvaluator`].
+    SpectralLibraryMatch,
     Custom(String),
 }
 
@@ -74,9 +83,21 @@ pub enum MissingReason {
     MeasuredButAbsent,
 }
 
+/// Which similarity metric a [`EvidenceDetail::SpectralLibraryMatch`]
+/// used. `MatchedPeakFraction` is always computable; `Cosine` requires
+/// usable intensity data on both sides of the comparison.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SpectralSimilarityMetric {
+    Cosine,
+    MatchedPeakFraction,
+}
+
 /// Typed, evidence-kind-specific payload: what was tested, expected,
 /// observed, and within what tolerance. `Generic` is the fallback for
 /// `EvidenceKind::Custom` and for kinds without a dedicated evaluator yet.
+///
+/// `#[non_exhaustive]` since 0.2.0, for the same reason as `EvidenceKind`.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum EvidenceDetail {
@@ -109,6 +130,16 @@ pub enum EvidenceDetail {
         tolerance_da: NonNegativeF64,
         observed_shift_da: Option<FiniteF64>,
         label_count: u8,
+    },
+    SpectralLibraryMatch {
+        metric: SpectralSimilarityMetric,
+        /// `None` when neither spectrum had usable intensity data (falls
+        /// back to `MatchedPeakFraction` as the reported `metric`).
+        cosine_similarity: Option<NonNegativeF64>,
+        matched_peak_fraction: NonNegativeF64,
+        matched_peak_count: u32,
+        reference_peak_count: u32,
+        mz_tolerance_da: NonNegativeF64,
     },
     Generic {
         expected: String,

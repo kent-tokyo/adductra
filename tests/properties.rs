@@ -1,11 +1,14 @@
 //! Property-based tests (`AGENTS.md` §16): mass-tolerance/ppm math,
 //! isotope-shift consistency, numeric-newtype validation, evidence-set
-//! duplication, serialization round-trip, and ranking determinism.
+//! duplication, serialization round-trip, ranking determinism, and
+//! spectral-library-match similarity invariants.
 
 use adductra::mass_table::{Element, isotope_mass, ppm_error};
 use adductra::{
-    Evidence, EvidenceDetail, EvidenceKind, EvidenceSet, EvidenceSource, EvidenceStrength,
-    FiniteF64, IsotopeLabel, NonNegativeF64, Provenance, Ranker,
+    AdductCandidate, Evidence, EvidenceDetail, EvidenceEvaluator, EvidenceKind, EvidenceSet,
+    EvidenceSource, EvidenceStrength, FiniteF64, IonAdductType, IsotopeLabel, NonNegativeF64,
+    Observation, ProductIon, Provenance, Ranker, ReferencePeak, ReferenceSpectrum,
+    SpectralLibraryEvidenceEvaluator,
 };
 use proptest::prelude::*;
 
@@ -148,6 +151,116 @@ proptest! {
             if pair[0].ranking_score == pair[1].ranking_score {
                 prop_assert!(pair[0].candidate_id < pair[1].candidate_id);
             }
+        }
+    }
+}
+
+fn spectral_candidate() -> AdductCandidate {
+    AdductCandidate::from_formula("c1", "test", "C10H13N5O5", Provenance::derived("test")).unwrap()
+}
+
+/// Runs `SpectralLibraryEvidenceEvaluator` with `reference_peaks` as the
+/// sole reference spectrum and `observed_peaks` as the observation's
+/// product ions; returns the resulting cosine similarity (`None` if
+/// either spectrum has no usable intensity, per the documented fallback).
+fn spectral_cosine(reference_peaks: &[(f64, f64)], observed_peaks: &[(f64, f64)]) -> Option<f64> {
+    let ref_peaks: Vec<ReferencePeak> = reference_peaks
+        .iter()
+        .map(|&(mz, i)| ReferencePeak::new(mz, i).unwrap())
+        .collect();
+    let spectrum =
+        ReferenceSpectrum::new("c1", ref_peaks, EvidenceSource::Literature, "1.0.0").unwrap();
+    let evaluator = SpectralLibraryEvidenceEvaluator::new(vec![spectrum], 0.01, 0.7).unwrap();
+    let mut obs = Observation::new("obs1", 100.0, 1, IonAdductType::ProtonAdd).unwrap();
+    obs.product_ions = observed_peaks
+        .iter()
+        .map(|&(mz, i)| ProductIon::new(mz, Some(i)).unwrap())
+        .collect();
+    let evidence = evaluator.evaluate(&obs, &spectral_candidate()).unwrap();
+    match evidence[0].detail() {
+        EvidenceDetail::SpectralLibraryMatch {
+            cosine_similarity, ..
+        } => cosine_similarity.map(|c| c.get()),
+        _ => None,
+    }
+}
+
+proptest! {
+    /// A spectrum compared against itself has cosine similarity 1.0.
+    #[test]
+    fn spectral_self_similarity_is_one(
+        peaks in prop::collection::vec((1.0f64..2000.0, 0.1f64..1000.0), 1..6)
+    ) {
+        let cosine = spectral_cosine(&peaks, &peaks);
+        prop_assert!(cosine.is_some());
+        prop_assert!((cosine.unwrap() - 1.0).abs() < 1e-6, "got {:?}", cosine);
+    }
+
+    /// Reversing peak order in both spectra can't change the result —
+    /// the greedy matcher and the cosine sums are independent of input
+    /// order, only of matched (mz, intensity) content.
+    #[test]
+    fn spectral_cosine_invariant_to_peak_order(
+        peaks in prop::collection::vec((1.0f64..2000.0, 0.1f64..1000.0), 2..6)
+    ) {
+        let forward = spectral_cosine(&peaks, &peaks);
+        let mut reversed = peaks.clone();
+        reversed.reverse();
+        let backward = spectral_cosine(&reversed, &reversed);
+        prop_assert!(forward.is_some() && backward.is_some());
+        prop_assert!((forward.unwrap() - backward.unwrap()).abs() < 1e-6);
+    }
+
+    /// Cosine similarity is invariant to uniformly scaling one spectrum's
+    /// intensities by a positive constant (sqrt-transform preserves this:
+    /// sqrt(k*x) = sqrt(k)*sqrt(x), a constant factor cosine divides out).
+    #[test]
+    fn spectral_cosine_invariant_to_intensity_scaling(
+        peaks in prop::collection::vec((1.0f64..2000.0, 0.1f64..1000.0), 1..6),
+        scale in 0.01f64..100.0,
+    ) {
+        let scaled: Vec<(f64, f64)> = peaks.iter().map(|&(mz, i)| (mz, i * scale)).collect();
+        let unscaled_self = spectral_cosine(&peaks, &peaks);
+        let scaled_vs_unscaled = spectral_cosine(&scaled, &peaks);
+        prop_assert!(unscaled_self.is_some() && scaled_vs_unscaled.is_some());
+        prop_assert!((unscaled_self.unwrap() - scaled_vs_unscaled.unwrap()).abs() < 1e-6);
+    }
+
+    /// All-zero-intensity peak lists must fall back to `None` (no
+    /// cosine), never produce NaN -- the zero-norm guard.
+    #[test]
+    fn spectral_all_zero_intensity_never_nan(
+        mzs in prop::collection::vec(1.0f64..2000.0, 1..6)
+    ) {
+        let peaks: Vec<(f64, f64)> = mzs.iter().map(|&mz| (mz, 0.0)).collect();
+        let cosine = spectral_cosine(&peaks, &peaks);
+        prop_assert!(cosine.is_none());
+    }
+
+    /// Regression guard for the greedy-matcher double-counting bug: the
+    /// matched-peak count can never exceed either spectrum's own size.
+    #[test]
+    fn spectral_matched_peak_count_never_exceeds_either_spectrum(
+        reference in prop::collection::vec((1.0f64..2000.0, 0.0f64..1000.0), 1..8),
+        observed in prop::collection::vec((1.0f64..2000.0, 0.0f64..1000.0), 1..8),
+    ) {
+        let ref_peaks: Vec<ReferencePeak> = reference
+            .iter()
+            .map(|&(mz, i)| ReferencePeak::new(mz, i).unwrap())
+            .collect();
+        let spectrum =
+            ReferenceSpectrum::new("c1", ref_peaks, EvidenceSource::Literature, "1.0.0").unwrap();
+        let evaluator = SpectralLibraryEvidenceEvaluator::new(vec![spectrum], 0.01, 0.7).unwrap();
+        let mut obs = Observation::new("obs1", 100.0, 1, IonAdductType::ProtonAdd).unwrap();
+        obs.product_ions = observed
+            .iter()
+            .map(|&(mz, i)| ProductIon::new(mz, Some(i)).unwrap())
+            .collect();
+        let evidence = evaluator.evaluate(&obs, &spectral_candidate()).unwrap();
+        if let EvidenceDetail::SpectralLibraryMatch { matched_peak_count, reference_peak_count, .. } = evidence[0].detail() {
+            prop_assert_eq!(*reference_peak_count, reference.len() as u32);
+            prop_assert!(*matched_peak_count <= reference.len() as u32);
+            prop_assert!(*matched_peak_count <= observed.len() as u32);
         }
     }
 }

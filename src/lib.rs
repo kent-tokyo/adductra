@@ -54,12 +54,17 @@ pub mod evidence;
 pub mod mass_table;
 pub mod model;
 pub mod ranking;
+pub mod reference_spectrum;
 pub mod rules;
 
 pub use candidate_generator::{CandidateGenerator, UserSuppliedGenerator};
 pub use error::AdductraError;
 pub use evaluator::EvidenceEvaluator;
-pub use evidence::{FragmentEvidenceEvaluator, IsotopeEvidenceEvaluator, MassEvidenceEvaluator};
+pub use evidence::{
+    FragmentEvidenceEvaluator, IsotopeEvidenceEvaluator, MassEvidenceEvaluator,
+    SpectralLibraryEvidenceEvaluator,
+};
 pub use model::*;
 pub use ranking::{Explanation, ExplanationLine, ExplanationPolarity, Ranker, explain};
+pub use reference_spectrum::{ReferencePeak, ReferenceSpectrum};
 pub use rules::{FragmentRule, RuleExpectation, RuleTarget};

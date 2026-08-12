@@ -9,10 +9,11 @@
 //! base ion after deoxyribose loss).
 
 use adductra::{
-    AdductCandidate, AdductReport, CandidateAssessment, CandidateGenerator, EvidenceDirection,
-    EvidenceEvaluator, EvidenceKind, EvidenceSet, FragmentEvidenceEvaluator, IonAdductType,
-    IsotopeEvidenceEvaluator, MassEvidenceEvaluator, NucleobaseOrigin, Observation, ProductIon,
-    Provenance, Ranker, UserSuppliedGenerator, explain,
+    AdductCandidate, AdductReport, CandidateAssessment, CandidateGenerator, EvidenceDetail,
+    EvidenceDirection, EvidenceEvaluator, EvidenceKind, EvidenceSet, EvidenceSource,
+    FragmentEvidenceEvaluator, IonAdductType, IsotopeEvidenceEvaluator, MassEvidenceEvaluator,
+    NucleobaseOrigin, Observation, ProductIon, Provenance, Ranker, ReferencePeak,
+    ReferenceSpectrum, SpectralLibraryEvidenceEvaluator, UserSuppliedGenerator, explain,
 };
 
 fn observation() -> Observation {
@@ -231,5 +232,83 @@ fn present_but_wrong_fragment_peaks_lower_the_ranking_score() {
             .iter()
             .all(|e| e.direction() == EvidenceDirection::Contradicting),
         "{fragment_evidence:#?}"
+    );
+}
+
+#[test]
+fn spectral_library_match_uses_the_same_verified_8_oxo_dg_peaks() {
+    // No new external data: the reference spectrum here is built from
+    // the exact same real, cited product-ion triplet `observation()`
+    // already uses (168.0516/140.0567/112.0618, intensities 100/40/15),
+    // demonstrating the new evidence type end-to-end against data this
+    // fixture has already independently verified.
+    let candidate = AdductCandidate::from_formula(
+        "8-oxo-dG",
+        "8-oxo-2'-deoxyguanosine",
+        "C10H13N5O5",
+        Provenance::derived("benchmark-fixture"),
+    )
+    .unwrap()
+    .with_nucleobase_origin(NucleobaseOrigin::Other("8-oxo-guanine".to_string()));
+
+    let reference_peaks = vec![
+        ReferencePeak::new(168.0516, 100.0).unwrap(),
+        ReferencePeak::new(140.0567, 40.0).unwrap(),
+        ReferencePeak::new(112.0618, 15.0).unwrap(),
+    ];
+    let reference = ReferenceSpectrum::new(
+        candidate.id.clone(),
+        reference_peaks,
+        EvidenceSource::Experimental,
+        "1.0.0",
+    )
+    .unwrap()
+    .with_citation("see docs/landscape.md sec 5 (8-oxo-dG reference case)")
+    .with_collision_energy("35 eV HCD");
+    let evaluator = SpectralLibraryEvidenceEvaluator::new(vec![reference], 0.01, 0.7).unwrap();
+
+    // Matching spectrum: the same triplet observation() already uses.
+    let matching_evidence = evaluator.evaluate(&observation(), &candidate).unwrap();
+    assert_eq!(matching_evidence.len(), 1);
+    assert_eq!(
+        matching_evidence[0].direction(),
+        EvidenceDirection::Supporting
+    );
+    assert_eq!(
+        *matching_evidence[0].kind(),
+        EvidenceKind::SpectralLibraryMatch
+    );
+    if let EvidenceDetail::SpectralLibraryMatch {
+        cosine_similarity, ..
+    } = matching_evidence[0].detail()
+    {
+        assert!(
+            (cosine_similarity.unwrap().get() - 1.0).abs() < 1e-9,
+            "{:?}",
+            cosine_similarity
+        );
+    }
+    // Collision energy provenance flows through to the emitted evidence.
+    assert_eq!(
+        matching_evidence[0]
+            .provenance()
+            .parameters
+            .get("collision_energy")
+            .map(String::as_str),
+        Some("35 eV HCD")
+    );
+
+    // Clearly different spectrum: same wrong-peaks pattern already used
+    // to test FragmentEvidenceEvaluator's Contradicting behavior above.
+    let wrong_obs = Observation::new("obs-wrong-peaks", 284.0989, 1, IonAdductType::ProtonAdd)
+        .unwrap()
+        .with_product_ions(vec![
+            ProductIon::new(200.0, Some(50.0)).unwrap(),
+            ProductIon::new(90.0, Some(20.0)).unwrap(),
+        ]);
+    let wrong_evidence = evaluator.evaluate(&wrong_obs, &candidate).unwrap();
+    assert_eq!(
+        wrong_evidence[0].direction(),
+        EvidenceDirection::Contradicting
     );
 }

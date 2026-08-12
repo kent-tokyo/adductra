@@ -45,4 +45,10 @@ pub enum AdductraError {
 
     #[error("missing_reason must be present when direction is Missing and absent otherwise")]
     InvalidMissingReason,
+
+    #[error("reference spectrum for candidate {candidate_id:?} has no peaks")]
+    EmptyReferenceSpectrum { candidate_id: String },
+
+    #[error("similarity_threshold must be in (0.5, 1.0), got {0}")]
+    InvalidSimilarityThreshold(f64),
 }
