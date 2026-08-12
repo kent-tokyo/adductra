@@ -133,10 +133,6 @@ pub fn ppm_error(theoretical: f64, observed: f64) -> f64 {
 pub struct Formula(BTreeMap<Element, u32>);
 
 impl Formula {
-    pub fn from_counts(counts: BTreeMap<Element, u32>) -> Self {
-        Self(counts)
-    }
-
     pub fn parse(formula: &str) -> Result<Self, AdductraError> {
         let raw = crate::chem_adapter::parse_formula_counts(formula)?;
         let mut counts = BTreeMap::new();
@@ -161,27 +157,6 @@ impl Formula {
             .iter()
             .map(|(element, &count)| element.monoisotopic_mass() * count as f64)
             .sum()
-    }
-
-    pub fn to_hill_string(&self) -> String {
-        let mut s = String::new();
-        // Hill order: C, then H, then remaining elements alphabetically.
-        if let Some(&c) = self.0.get(&Element::C) {
-            s.push_str(&format!("C{c}"));
-        }
-        if let Some(&h) = self.0.get(&Element::H) {
-            s.push_str(&format!("H{h}"));
-        }
-        let mut rest: Vec<_> = self
-            .0
-            .iter()
-            .filter(|&(&e, _)| e != Element::C && e != Element::H)
-            .collect();
-        rest.sort_by_key(|(e, _)| e.symbol());
-        for (element, &count) in rest {
-            s.push_str(&format!("{}{count}", element.symbol()));
-        }
-        s
     }
 }
 
@@ -213,5 +188,14 @@ mod tests {
     #[test]
     fn unsupported_isotope_is_error() {
         assert!(isotope_mass(Element::C, 14).is_err());
+    }
+
+    #[test]
+    fn unknown_element_symbol_is_rejected_not_panicking() {
+        // A real, reachable error path: AdductCandidate::from_formula
+        // eagerly parses the formula, so a typo'd or unsupported element
+        // symbol must surface as AdductraError::UnknownElement, not panic.
+        let result = Formula::parse("Xx2H4");
+        assert!(matches!(result, Err(AdductraError::UnknownElement(_))));
     }
 }

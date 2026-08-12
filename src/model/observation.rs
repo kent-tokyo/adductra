@@ -214,6 +214,34 @@ mod tests {
     }
 
     #[test]
+    fn metal_and_ammonium_adducts_subtract_electron_mass() {
+        // Independently-computed expected values (NIST monoisotopic
+        // masses minus one electron), not derived via the same formula
+        // `mass_shift_da()` uses internally -- a test that mirrors the
+        // implementation wouldn't catch an implementation bug.
+        assert!(
+            (IonAdductType::SodiumAdd.mass_shift_da() - 22.989_220).abs() < 1e-5,
+            "got {}",
+            IonAdductType::SodiumAdd.mass_shift_da()
+        );
+        assert_eq!(IonAdductType::SodiumAdd.label(), "[M+Na]+");
+
+        assert!(
+            (IonAdductType::PotassiumAdd.mass_shift_da() - 38.963_158).abs() < 1e-5,
+            "got {}",
+            IonAdductType::PotassiumAdd.mass_shift_da()
+        );
+        assert_eq!(IonAdductType::PotassiumAdd.label(), "[M+K]+");
+
+        assert!(
+            (IonAdductType::AmmoniumAdd.mass_shift_da() - 18.033_826).abs() < 1e-5,
+            "got {}",
+            IonAdductType::AmmoniumAdd.mass_shift_da()
+        );
+        assert_eq!(IonAdductType::AmmoniumAdd.label(), "[M+NH4]+");
+    }
+
+    #[test]
     fn custom_ion_adduct_reports_its_own_shift_and_label() {
         let adduct = IonAdductType::Custom {
             label: "[M+CH3OH+H]+".to_string(),
