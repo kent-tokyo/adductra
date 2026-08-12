@@ -153,6 +153,46 @@ impl Observation {
         self.formula_hint = Some(formula.into());
         self
     }
+
+    /// Neutral monoisotopic mass implied by this observation's precursor
+    /// m/z, charge, and ion adduct — the ionization "undone". Assumes
+    /// homogeneous adduct stacking for `|charge| > 1` (e.g. `[M+2H]2+`
+    /// carries two protons), the standard mass-spec convention. `Err` if
+    /// `charge == 0`. Shared by `MassEvidenceEvaluator` and
+    /// `IsotopeEvidenceEvaluator` so the two never drift apart.
+    pub fn observed_neutral_mass(&self) -> Result<f64, AdductraError> {
+        if self.charge == 0 {
+            return Err(AdductraError::InvalidCharge(0));
+        }
+        let z = self.charge.unsigned_abs() as f64;
+        let total_ion_shift = self.ion_adduct.mass_shift_da() * z;
+        Ok(self.precursor_mz.get() * z - total_ion_shift)
+    }
+
+    /// Validates every isotope label's `count` against how many atoms of
+    /// that element `formula` actually has, then sums the expected mass
+    /// shift across all labels (0.0 if there are none). `Err` if any
+    /// label requests more labeled atoms than the formula has (§17:
+    /// "impossible isotope count" must be rejected explicitly, not
+    /// silently accepted).
+    pub fn total_isotope_shift_da(
+        &self,
+        formula: &crate::mass_table::Formula,
+    ) -> Result<f64, AdductraError> {
+        let mut total = 0.0;
+        for label in &self.isotope_labels {
+            let available = formula.count(label.element);
+            if label.count as u32 > available {
+                return Err(AdductraError::ImpossibleIsotopeCount {
+                    element: label.element.symbol().to_string(),
+                    requested: label.count,
+                    available,
+                });
+            }
+            total += label.total_shift_da()?;
+        }
+        Ok(total)
+    }
 }
 
 #[cfg(test)]

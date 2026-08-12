@@ -10,7 +10,7 @@
 //!   adduct's polarity.
 
 use crate::error::AdductraError;
-use crate::evaluator::EvidenceEvaluator;
+use crate::evaluator::{EvidenceEvaluator, tolerance_strength};
 use crate::mass_table::{Formula, ppm_error};
 use crate::model::{
     AdductCandidate, Evidence, EvidenceDetail, EvidenceKind, EvidenceSource, EvidenceStrength,
@@ -18,10 +18,10 @@ use crate::model::{
 };
 
 /// ponytail: single global tolerance for both mass and precursor
-/// evidence, and a fixed 0.5x/2x strength-banding heuristic. Good enough
-/// for a transparent v0.1 baseline (`AGENTS.md` §10); revisit with
-/// per-evidence-kind tolerances if benchmark data (Phase 6) shows the
-/// bands are miscalibrated.
+/// evidence, and a fixed 0.5x/2x strength-banding heuristic (see
+/// `evaluator::tolerance_strength`). Good enough for a transparent v0.1
+/// baseline (`AGENTS.md` §10); revisit with per-evidence-kind tolerances
+/// if benchmark data (Phase 6) shows the bands are miscalibrated.
 pub struct MassEvidenceEvaluator {
     tolerance_ppm: f64,
 }
@@ -30,20 +30,6 @@ impl MassEvidenceEvaluator {
     pub fn new(tolerance_ppm: f64) -> Result<Self, AdductraError> {
         NonNegativeF64::new(tolerance_ppm, "tolerance_ppm")?;
         Ok(Self { tolerance_ppm })
-    }
-
-    fn strength_for(&self, abs_delta_ppm: f64, within_tolerance: bool) -> EvidenceStrength {
-        if within_tolerance {
-            if abs_delta_ppm <= self.tolerance_ppm / 2.0 {
-                EvidenceStrength::Strong
-            } else {
-                EvidenceStrength::Moderate
-            }
-        } else if abs_delta_ppm <= self.tolerance_ppm * 2.0 {
-            EvidenceStrength::Weak
-        } else {
-            EvidenceStrength::Strong
-        }
     }
 
     fn provenance(&self) -> Provenance {
@@ -76,36 +62,19 @@ impl EvidenceEvaluator for MassEvidenceEvaluator {
         observation: &Observation,
         candidate: &AdductCandidate,
     ) -> Result<Vec<Evidence>, AdductraError> {
-        if observation.charge == 0 {
-            return Err(AdductraError::InvalidCharge(0));
-        }
-
         let formula = Formula::parse(&candidate.formula)?;
-        let mut isotope_shift_da = 0.0;
-        for label in &observation.isotope_labels {
-            let available = formula.count(label.element);
-            if label.count as u32 > available {
-                return Err(AdductraError::ImpossibleIsotopeCount {
-                    element: label.element.symbol().to_string(),
-                    requested: label.count,
-                    available,
-                });
-            }
-            isotope_shift_da += label.total_shift_da()?;
-        }
+        let isotope_shift_da = observation.total_isotope_shift_da(&formula)?;
         let theoretical_neutral = formula.monoisotopic_mass() + isotope_shift_da;
+        let observed_neutral = observation.observed_neutral_mass()?;
 
-        let z = observation.charge.unsigned_abs() as f64;
         // Assumes homogeneous adduct stacking: a charge of z carries z
         // instances of the same ionization event (e.g. [M+2H]2+ = two
         // protons), which is the standard mass-spec convention for
         // multiply protonated/deprotonated species and the common case
-        // for small-molecule DNA adducts. `ion_shift` is therefore the
-        // *per-charge* contribution, scaled by z below — NOT a single
-        // fixed adduct mass regardless of charge state.
+        // for small-molecule DNA adducts — see
+        // `Observation::observed_neutral_mass`.
+        let z = observation.charge.unsigned_abs() as f64;
         let ion_shift = observation.ion_adduct.mass_shift_da() * z;
-        let observed_ion_mass = observation.precursor_mz.get() * z;
-        let observed_neutral = observed_ion_mass - ion_shift;
 
         let mut evidence = Vec::with_capacity(2);
 
@@ -118,7 +87,7 @@ impl EvidenceEvaluator for MassEvidenceEvaluator {
             delta_ppm: FiniteF64::new(mass_delta_ppm, "delta_ppm")?,
             tolerance_ppm: NonNegativeF64::new(self.tolerance_ppm, "tolerance_ppm")?,
         };
-        let strength = self.strength_for(mass_delta_ppm.abs(), mass_within);
+        let strength = tolerance_strength(mass_delta_ppm.abs(), self.tolerance_ppm, mass_within);
         evidence.push(if mass_within {
             Evidence::supporting(
                 EvidenceKind::Mass,
@@ -160,7 +129,7 @@ impl EvidenceEvaluator for MassEvidenceEvaluator {
         let precursor_strength = if !polarity_ok {
             EvidenceStrength::Strong
         } else {
-            self.strength_for(mz_delta_ppm.abs(), mz_within)
+            tolerance_strength(mz_delta_ppm.abs(), self.tolerance_ppm, mz_within)
         };
         evidence.push(if mz_within {
             Evidence::supporting(

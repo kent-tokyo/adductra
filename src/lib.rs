@@ -24,7 +24,7 @@ pub mod rules;
 pub use candidate_generator::{CandidateGenerator, UserSuppliedGenerator};
 pub use error::AdductraError;
 pub use evaluator::EvidenceEvaluator;
-pub use evidence::{FragmentEvidenceEvaluator, MassEvidenceEvaluator};
+pub use evidence::{FragmentEvidenceEvaluator, IsotopeEvidenceEvaluator, MassEvidenceEvaluator};
 pub use model::*;
 pub use ranking::{Explanation, ExplanationLine, ExplanationPolarity, Ranker, explain};
 pub use rules::{FragmentRule, RuleExpectation, RuleTarget};

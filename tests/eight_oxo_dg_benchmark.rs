@@ -9,9 +9,10 @@
 //! base ion after deoxyribose loss).
 
 use adductra::{
-    AdductCandidate, AdductReport, CandidateAssessment, CandidateGenerator, EvidenceEvaluator,
-    EvidenceSet, FragmentEvidenceEvaluator, IonAdductType, MassEvidenceEvaluator, NucleobaseOrigin,
-    Observation, ProductIon, Provenance, Ranker, UserSuppliedGenerator, explain,
+    AdductCandidate, AdductReport, CandidateAssessment, CandidateGenerator, EvidenceDirection,
+    EvidenceEvaluator, EvidenceKind, EvidenceSet, FragmentEvidenceEvaluator, IonAdductType,
+    IsotopeEvidenceEvaluator, MassEvidenceEvaluator, NucleobaseOrigin, Observation, ProductIon,
+    Provenance, Ranker, UserSuppliedGenerator, explain,
 };
 
 fn observation() -> Observation {
@@ -69,12 +70,18 @@ fn known_adduct_outranks_decoys_with_explainable_evidence() {
 
     let mass_evaluator = MassEvidenceEvaluator::new(10.0).unwrap();
     let fragment_evaluator = FragmentEvidenceEvaluator::with_built_in_rules().unwrap();
+    let isotope_evaluator = IsotopeEvidenceEvaluator::new(0.005).unwrap();
 
     let assessments: Vec<CandidateAssessment> = candidates
         .iter()
         .map(|candidate| {
             let mut evidence = mass_evaluator.evaluate(&obs, candidate).unwrap();
             evidence.extend(fragment_evaluator.evaluate(&obs, candidate).unwrap());
+            // No isotope label was used in this observation, so this
+            // contributes one NotApplicable item (score-neutral) — run
+            // it anyway so the full evaluator suite is exercised
+            // end-to-end, not just the two that happen to score.
+            evidence.extend(isotope_evaluator.evaluate(&obs, candidate).unwrap());
             CandidateAssessment::new(candidate.id.clone(), EvidenceSet::new(evidence))
         })
         .collect();
@@ -101,7 +108,7 @@ fn known_adduct_outranks_decoys_with_explainable_evidence() {
     assert!(text.contains("8-oxo-dG"));
     // At least one supporting (+) and the report should be non-trivial.
     assert!(text.contains('+'));
-    assert!(explanation.lines.len() >= 5); // mass + precursor + neutral-loss + 2 CO-loss fragments
+    assert!(explanation.lines.len() >= 6); // mass + precursor + neutral-loss + 2 CO-loss fragments + isotope (N/A)
 
     // Structured explanation must also round-trip through JSON — it's a
     // first-class serializable representation (§11), not just text.
@@ -152,4 +159,71 @@ fn missing_ms2_data_still_ranks_on_mass_alone_without_false_contradiction() {
     assert!(ranked[0].ranking_score.unwrap() > 0.0);
     let explanation = explain(&ranked[0]);
     assert!(explanation.lines.iter().any(|l| l.text.contains("missing")));
+}
+
+#[test]
+fn present_but_wrong_fragment_peaks_lower_the_ranking_score() {
+    // Same candidate, same correct precursor mass — but MS2 was acquired
+    // and shows peaks at the wrong positions (contamination/misassignment)
+    // rather than no MS2 data at all. Per §25 this must register as
+    // Contradicting evidence, not Missing, and net-lower the score
+    // relative to a spectrum that actually matches the expected pattern.
+    let candidate = AdductCandidate::from_formula(
+        "8-oxo-dG",
+        "8-oxo-2'-deoxyguanosine",
+        "C10H13N5O5",
+        Provenance::derived("benchmark-fixture"),
+    )
+    .unwrap()
+    .with_nucleobase_origin(NucleobaseOrigin::Guanine);
+
+    let matching_obs = observation();
+    let wrong_peaks_obs =
+        Observation::new("obs-wrong-peaks", 284.0989, 1, IonAdductType::ProtonAdd)
+            .unwrap()
+            .with_product_ions(vec![
+                ProductIon::new(200.0, Some(50.0)).unwrap(),
+                ProductIon::new(90.0, Some(20.0)).unwrap(),
+            ]);
+
+    let mass_evaluator = MassEvidenceEvaluator::new(10.0).unwrap();
+    let fragment_evaluator = FragmentEvidenceEvaluator::with_built_in_rules().unwrap();
+
+    let score_for = |obs: &Observation| -> f64 {
+        let mut evidence = mass_evaluator.evaluate(obs, &candidate).unwrap();
+        evidence.extend(fragment_evaluator.evaluate(obs, &candidate).unwrap());
+        let assessment = CandidateAssessment::new(candidate.id.clone(), EvidenceSet::new(evidence));
+        Ranker::new().rank(vec![assessment])[0]
+            .ranking_score
+            .unwrap()
+    };
+
+    let matching_score = score_for(&matching_obs);
+    let wrong_score = score_for(&wrong_peaks_obs);
+    assert!(
+        matching_score > wrong_score,
+        "matching={matching_score}, wrong={wrong_score}"
+    );
+
+    let mut evidence = mass_evaluator
+        .evaluate(&wrong_peaks_obs, &candidate)
+        .unwrap();
+    evidence.extend(
+        fragment_evaluator
+            .evaluate(&wrong_peaks_obs, &candidate)
+            .unwrap(),
+    );
+    let fragment_evidence: Vec<_> = evidence
+        .iter()
+        .filter(|e| {
+            *e.kind() == EvidenceKind::DiagnosticFragment || *e.kind() == EvidenceKind::NeutralLoss
+        })
+        .collect();
+    assert!(!fragment_evidence.is_empty());
+    assert!(
+        fragment_evidence
+            .iter()
+            .all(|e| e.direction() == EvidenceDirection::Contradicting),
+        "{fragment_evidence:#?}"
+    );
 }
