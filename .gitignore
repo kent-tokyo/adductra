@@ -1,3 +1,5 @@
 /target
 AGENTS.md
 ROADMAP.md
+.claude/
+tasks/*.md
