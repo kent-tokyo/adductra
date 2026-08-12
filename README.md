@@ -52,7 +52,7 @@ ranking score as a calibrated probability.
 
 [![Crates.io](https://img.shields.io/crates/v/adductra.svg)](https://crates.io/crates/adductra)
 
-v0.2.1, published to crates.io. Still under active development — see
+v0.2.2, published to crates.io. Still under active development — see
 `docs/landscape.md` for the Phase 0 design survey, `docs/benchmark.md`
 for what's been validated so far, and `CHANGELOG.md` for release notes.
 

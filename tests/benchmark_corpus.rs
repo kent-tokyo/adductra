@@ -13,10 +13,12 @@
 //!
 //! Fixture data intentionally duplicates (small, ~15-25 lines each) the
 //! setup in `tests/eight_oxo_dg_benchmark.rs`, `tests/afb1_n7_gua_benchmark.rs`,
-//! and `tests/ethenoadenine_benchmark.rs` rather than importing from them
-//! — those files are exercising specific evidence-type behaviors and
-//! already pass; this file adds a corpus-level view without risking a
-//! refactor of already-verified tests.
+//! `tests/ethenoadenine_benchmark.rs`, `tests/o6_me_dg_benchmark.rs`,
+//! `tests/n6_me_da_benchmark.rs`, and `tests/n2_ethyl_dg_benchmark.rs`
+//! rather than importing from them — those files are exercising specific
+//! evidence-type behaviors and already pass; this file adds a
+//! corpus-level view without risking a refactor of already-verified
+//! tests.
 
 use adductra::{
     AdductCandidate, CandidateAssessment, EvidenceDirection, EvidenceEvaluator, EvidenceSet,
@@ -140,6 +142,98 @@ fn etheno_da_case() -> BenchmarkCase {
     }
 }
 
+fn o6_me_dg_case() -> BenchmarkCase {
+    // Fourth reference case (`ROADMAP.md` v0.2.2), sourced from La
+    // Barbera et al. 2022 -- see tests/o6_me_dg_benchmark.rs for the
+    // full citation trail and independent mass derivation. Uses only the
+    // pre-existing generic deoxyribose-loss rule.
+    let observation = Observation::new("obs-o6medg-1", 282.119680, 1, IonAdductType::ProtonAdd)
+        .unwrap()
+        .with_product_ions(vec![ProductIon::new(166.072336, Some(100.0)).unwrap()]);
+    let candidates = vec![
+        AdductCandidate::from_formula(
+            "O6-Me-dG",
+            "O6-methyl-2'-deoxyguanosine",
+            "C11H15N5O4",
+            Provenance::derived("corpus"),
+        )
+        .unwrap(),
+        AdductCandidate::from_formula(
+            "1-Me-dG",
+            "1-methyl-2'-deoxyguanosine (real, same formula/mass, wrong regioisomer)",
+            "C11H15N5O4",
+            Provenance::derived("corpus"),
+        )
+        .unwrap(),
+    ];
+    BenchmarkCase {
+        name: "O6-Me-dG",
+        observation,
+        candidates,
+        correct_candidate_id: "O6-Me-dG",
+    }
+}
+
+fn n6_me_da_case() -> BenchmarkCase {
+    // Fifth reference case (`ROADMAP.md` v0.2.2) -- see
+    // tests/n6_me_da_benchmark.rs for the full citation trail.
+    let observation = Observation::new("obs-n6medga-1", 266.124766, 1, IonAdductType::ProtonAdd)
+        .unwrap()
+        .with_product_ions(vec![ProductIon::new(150.077422, Some(100.0)).unwrap()]);
+    let candidates = vec![
+        AdductCandidate::from_formula(
+            "N6-Me-dA",
+            "N6-methyl-2'-deoxyadenosine",
+            "C11H15N5O3",
+            Provenance::derived("corpus"),
+        )
+        .unwrap(),
+        AdductCandidate::from_formula(
+            "2-Me-dA",
+            "2-methyl-2'-deoxyadenosine (real, same formula/mass, wrong regioisomer)",
+            "C11H15N5O3",
+            Provenance::derived("corpus"),
+        )
+        .unwrap(),
+    ];
+    BenchmarkCase {
+        name: "N6-Me-dA",
+        observation,
+        candidates,
+        correct_candidate_id: "N6-Me-dA",
+    }
+}
+
+fn n2_ethyl_dg_case() -> BenchmarkCase {
+    // Sixth reference case (`ROADMAP.md` v0.2.2) -- see
+    // tests/n2_ethyl_dg_benchmark.rs for the full citation trail.
+    let observation = Observation::new("obs-n2etdg-1", 296.135331, 1, IonAdductType::ProtonAdd)
+        .unwrap()
+        .with_product_ions(vec![ProductIon::new(180.087986, Some(100.0)).unwrap()]);
+    let candidates = vec![
+        AdductCandidate::from_formula(
+            "N2-Ethyl-dG",
+            "N2-ethyl-2'-deoxyguanosine",
+            "C12H17N5O4",
+            Provenance::derived("corpus"),
+        )
+        .unwrap(),
+        AdductCandidate::from_formula(
+            "O6-Ethyl-dG",
+            "O6-ethyl-2'-deoxyguanosine (real, same formula/mass, wrong regioisomer)",
+            "C12H17N5O4",
+            Provenance::derived("corpus"),
+        )
+        .unwrap(),
+    ];
+    BenchmarkCase {
+        name: "N2-Ethyl-dG",
+        observation,
+        candidates,
+        correct_candidate_id: "N2-Ethyl-dG",
+    }
+}
+
 fn rank_case(case: &BenchmarkCase) -> Vec<CandidateAssessment> {
     let mass_evaluator = MassEvidenceEvaluator::new(10.0).unwrap();
     let fragment_evaluator = FragmentEvidenceEvaluator::with_built_in_rules().unwrap();
@@ -198,9 +292,33 @@ fn evidence_coverage(assessment: &CandidateAssessment) -> f64 {
     evaluable as f64 / total as f64
 }
 
+/// Reference cases whose decoy is only distinguishable by mass and the
+/// generic `Any`-targeted `nucleoside-deoxyribose-loss` rule (no
+/// candidate-specific rule, no per-decoy reference spectrum in the
+/// source database) genuinely tie with their decoy under this evaluator
+/// set. That's not a bug -- `nucleoside-deoxyribose-loss` is computed
+/// purely from the observed precursor/fragment delta and doesn't
+/// inspect candidate structure at all, so it cannot discriminate
+/// same-formula regioisomers by design. See
+/// `tests/o6_me_dg_benchmark.rs`'s module doc for the full reasoning and
+/// the dedicated tie test. Distinguishing these requires a real,
+/// per-candidate reference spectrum (`SpectralLibraryEvidenceEvaluator`,
+/// not used in `rank_case` here since none of the three decoys below
+/// have one in the source database -- adding a spectrum that only
+/// covers the correct candidate would make this metric measure fixture
+/// labeling, not the evidence engine's actual discriminating power).
+const KNOWN_ISOMER_TIES: &[&str] = &["O6-Me-dG", "N6-Me-dA", "N2-Ethyl-dG"];
+
 #[test]
 fn corpus_metrics_meet_v01_baseline() {
-    let cases = [eight_oxo_dg_case(), afb1_n7_gua_case(), etheno_da_case()];
+    let cases = [
+        eight_oxo_dg_case(),
+        afb1_n7_gua_case(),
+        etheno_da_case(),
+        o6_me_dg_case(),
+        n6_me_da_case(),
+        n2_ethyl_dg_case(),
+    ];
     let n = cases.len() as f64;
 
     let mut top_1_hits = 0usize;
@@ -214,6 +332,7 @@ fn corpus_metrics_meet_v01_baseline() {
     for case in &cases {
         let ranked = rank_case(case);
         let rank = correct_rank(&ranked, case.correct_candidate_id);
+        let is_known_tie = KNOWN_ISOMER_TIES.contains(&case.correct_candidate_id);
 
         if rank == 1 {
             top_1_hits += 1;
@@ -232,7 +351,8 @@ fn corpus_metrics_meet_v01_baseline() {
             .filter(|a| a.candidate_id != case.correct_candidate_id)
             .map(|a| a.ranking_score.unwrap())
             .fold(f64::NEG_INFINITY, f64::max);
-        margins.push(correct.ranking_score.unwrap() - best_wrong_score);
+        let margin = correct.ranking_score.unwrap() - best_wrong_score;
+        margins.push(margin);
         coverages.push(evidence_coverage(correct));
 
         total_candidates += ranked.len();
@@ -242,11 +362,35 @@ fn corpus_metrics_meet_v01_baseline() {
             .count();
 
         println!(
-            "{:<15} rank={rank} score={:.2} margin={:.2}",
+            "{:<15} rank={rank} score={:.2} margin={:.2}{}",
             case.name,
             correct.ranking_score.unwrap(),
-            margins.last().unwrap()
+            margin,
+            if is_known_tie {
+                " (known isomer tie)"
+            } else {
+                ""
+            }
         );
+
+        // Cases outside the known-tie list must strictly beat every
+        // decoy, exactly as required since the 3-case v0.1 corpus --
+        // zero regression tolerance here. Known-tie cases must never do
+        // *worse* than their decoy (margin >= 0), and the tie must be
+        // exact (not some other, unexplained discrepancy).
+        if is_known_tie {
+            assert_eq!(
+                margin, 0.0,
+                "{}: expected an exact, documented tie with its decoy",
+                case.name
+            );
+        } else {
+            assert!(
+                margin > 0.0,
+                "{}: correct candidate must strictly beat every decoy",
+                case.name
+            );
+        }
     }
 
     let top_1_accuracy = top_1_hits as f64 / n;
@@ -262,17 +406,19 @@ fn corpus_metrics_meet_v01_baseline() {
          candidate_reduction={candidate_reduction:.2} (n={n})"
     );
 
-    // Baseline assertions for a 3-case v0.1 corpus: every known adduct
-    // must rank first with a positive margin over every decoy, and get
-    // fully-evaluable evidence (no evidence-type gaps for the *correct*
-    // candidate specifically). Tightening these as the corpus grows is
-    // expected; regressing them should fail CI.
+    // Corpus-wide assertions. top_1_accuracy/mrr are intentionally NOT
+    // required to be 1.0 across all 6 cases: 3 of them are known,
+    // documented isomer ties (see KNOWN_ISOMER_TIES) where this
+    // evaluator set genuinely cannot discriminate the correct candidate
+    // from its decoy, and a tied rank is an artifact of stable-sort
+    // insertion order, not a real #1 finish. top_2_recall staying at 1.0
+    // is the honest version of the old "every known adduct ranks first"
+    // guarantee for this corpus: every correct candidate is still never
+    // outranked by its decoy, even in a tie.
     assert_eq!(
-        top_1_accuracy, 1.0,
-        "every known adduct must rank #1 in its own case"
+        top_2_recall, 1.0,
+        "every known adduct must be at worst tied for first in its own case"
     );
-    assert_eq!(top_2_recall, 1.0);
-    assert_eq!(mrr, 1.0);
     assert!(
         mean_margin > 0.0,
         "correct candidate must beat the best decoy on average"

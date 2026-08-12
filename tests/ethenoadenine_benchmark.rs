@@ -42,9 +42,11 @@
 
 use adductra::mass_table::Element;
 use adductra::{
-    AdductCandidate, CandidateAssessment, EvidenceDirection, EvidenceEvaluator, EvidenceSet,
-    FragmentEvidenceEvaluator, IonAdductType, IsotopeEvidenceEvaluator, IsotopeLabel,
-    MassEvidenceEvaluator, NucleobaseOrigin, Observation, ProductIon, Provenance, Ranker,
+    AdductCandidate, CandidateAssessment, EvidenceDetail, EvidenceDirection, EvidenceEvaluator,
+    EvidenceSet, EvidenceSource, FragmentEvidenceEvaluator, IonAdductType,
+    IsotopeEvidenceEvaluator, IsotopeLabel, MassEvidenceEvaluator, NucleobaseOrigin, Observation,
+    ProductIon, Provenance, Ranker, ReferencePeak, ReferenceSpectrum,
+    SpectralLibraryEvidenceEvaluator,
 };
 
 fn eda_observation() -> Observation {
@@ -136,4 +138,48 @@ fn fifteen_n5_labeled_etheno_da_shift_supported_by_isotope_evidence() {
     bad_obs.isotope_labels = vec![IsotopeLabel::new(Element::N, 15, 6)];
     let result = isotope_evaluator.evaluate(&bad_obs, &eda_candidate());
     assert!(result.is_err());
+}
+
+#[test]
+fn spectral_library_match_cross_validated_against_real_la_barbera_etheno_da_spectrum() {
+    // Independent cross-validation (`ROADMAP.md` v0.2.2): a real
+    // experimental peak (20 eV collision energy) from La Barbera G,
+    // Nommesen KD, Cuparencu C, Stanstrup J, Dragsted LO (2022), "A
+    // Comprehensive Database for DNA Adductomics," Frontiers in
+    // Chemistry 10:908572, doi:10.3389/fchem.2022.908572 (CC BY 4.0;
+    // `gitlab.com/nexs-metabolomics/projects/dna_adductomics_database`,
+    // `_input/MS MS spectra standards.xlsx`, `etheno-dA` sheet, listed
+    // there as "1, N6-etheno-dA"). Lands within ~0.0002 Da of this
+    // fixture's own independently-derived 160.061772 -- a real, external
+    // source corroborating already-shipped fixture data.
+    let candidate = eda_candidate();
+    let reference_peaks = vec![ReferencePeak::new(160.06194, 100.0).unwrap()];
+    let reference = ReferenceSpectrum::new(
+        candidate.id.clone(),
+        reference_peaks,
+        EvidenceSource::Experimental,
+        "1.0.0",
+    )
+    .unwrap()
+    .with_citation(
+        "La Barbera et al. 2022, Frontiers in Chemistry 10:908572, doi:10.3389/fchem.2022.908572 \
+         (gitlab.com/nexs-metabolomics/projects/dna_adductomics_database, CC BY 4.0)",
+    )
+    .with_collision_energy("20 eV");
+    let evaluator = SpectralLibraryEvidenceEvaluator::new(vec![reference], 0.01, 0.7).unwrap();
+
+    let evidence = evaluator.evaluate(&eda_observation(), &candidate).unwrap();
+    assert_eq!(evidence.len(), 1);
+    assert_eq!(evidence[0].direction(), EvidenceDirection::Supporting);
+    assert!(matches!(
+        evidence[0].detail(),
+        EvidenceDetail::SpectralLibraryMatch { .. }
+    ));
+    if let EvidenceDetail::SpectralLibraryMatch {
+        cosine_similarity, ..
+    } = evidence[0].detail()
+    {
+        let cosine = cosine_similarity.unwrap().get();
+        assert!(cosine > 0.99, "expected near-1.0 cosine, got {cosine}");
+    }
 }

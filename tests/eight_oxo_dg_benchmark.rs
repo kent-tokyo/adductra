@@ -312,3 +312,61 @@ fn spectral_library_match_uses_the_same_verified_8_oxo_dg_peaks() {
         EvidenceDirection::Contradicting
     );
 }
+
+#[test]
+fn spectral_library_match_cross_validated_against_real_la_barbera_8_oxo_dg_spectrum() {
+    // Independent cross-validation (`ROADMAP.md` v0.2.2): unlike the
+    // test above, these peaks are NOT copied from `observation()` -- they
+    // are real experimental values (40 eV collision energy) from La
+    // Barbera G, Nommesen KD, Cuparencu C, Stanstrup J, Dragsted LO
+    // (2022), "A Comprehensive Database for DNA Adductomics," Frontiers
+    // in Chemistry 10:908572, doi:10.3389/fchem.2022.908572 (CC BY 4.0;
+    // `gitlab.com/nexs-metabolomics/projects/dna_adductomics_database`,
+    // `_input/MS MS spectra standards.xlsx`, `8-oxo-dG` sheet). They
+    // land within ~0.0005 Da of this fixture's own independently-derived
+    // 168.0516/140.0567/112.0618 triplet -- a real, external source
+    // corroborating already-shipped fixture data, not just a second
+    // synthetic test of the same numbers.
+    let candidate = AdductCandidate::from_formula(
+        "8-oxo-dG",
+        "8-oxo-2'-deoxyguanosine",
+        "C10H13N5O5",
+        Provenance::derived("benchmark-fixture"),
+    )
+    .unwrap()
+    .with_nucleobase_origin(NucleobaseOrigin::Other("8-oxo-guanine".to_string()));
+
+    let reference_peaks = vec![
+        ReferencePeak::new(168.05154, 100.0).unwrap(),
+        ReferencePeak::new(140.05707, 63.69).unwrap(),
+        ReferencePeak::new(112.06223, 23.18).unwrap(),
+    ];
+    let reference = ReferenceSpectrum::new(
+        candidate.id.clone(),
+        reference_peaks,
+        EvidenceSource::Experimental,
+        "1.0.0",
+    )
+    .unwrap()
+    .with_citation(
+        "La Barbera et al. 2022, Frontiers in Chemistry 10:908572, doi:10.3389/fchem.2022.908572 \
+         (gitlab.com/nexs-metabolomics/projects/dna_adductomics_database, CC BY 4.0)",
+    )
+    .with_collision_energy("40 eV");
+    let evaluator = SpectralLibraryEvidenceEvaluator::new(vec![reference], 0.01, 0.7).unwrap();
+
+    let evidence = evaluator.evaluate(&observation(), &candidate).unwrap();
+    assert_eq!(evidence.len(), 1);
+    assert_eq!(evidence[0].direction(), EvidenceDirection::Supporting);
+    assert!(matches!(
+        evidence[0].detail(),
+        EvidenceDetail::SpectralLibraryMatch { .. }
+    ));
+    if let EvidenceDetail::SpectralLibraryMatch {
+        cosine_similarity, ..
+    } = evidence[0].detail()
+    {
+        let cosine = cosine_similarity.unwrap().get();
+        assert!(cosine > 0.98, "expected high cosine, got {cosine}");
+    }
+}

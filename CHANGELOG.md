@@ -5,6 +5,43 @@ All notable changes to Adductra are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/);
 versioning follows [Semantic Versioning](https://semver.org/).
 
+## [0.2.2] - 2026-08-13
+
+### Added
+
+- Three new benchmark reference cases sourced from La Barbera et al.
+  2022's DNA adductomics database (Frontiers in Chemistry 10:908572,
+  CC BY 4.0): O6-Me-dG, N6-Me-dA, N2-Ethyl-dG — growing the corpus from
+  3 to 6 cases. Each uses real experimental LC-MS/MS standards data
+  (not the database's CFM-ID *predicted* spectra) and needs zero new
+  fragment-rule data, since all three share the pre-existing generic
+  `nucleoside-deoxyribose-loss` rule.
+- Independent cross-validation of the two pre-existing overlapping
+  cases (8-oxo-dG, "1,N6-ethenoadenine"): each gets a second,
+  independently-sourced `ReferenceSpectrum` built from La Barbera's
+  real measured peaks, corroborating the fixtures' own hand-derived
+  values (within ~0.0005 Da, cosine > 0.98).
+
+### Notes
+
+- **A genuine, documented finding, not a regression**: the three new
+  cases' decoys are real, same-formula regioisomers (e.g. 1-Me-dG vs.
+  O6-Me-dG). The generic `Any`-targeted deoxyribose-loss rule is
+  computed purely from the observed precursor/fragment delta and
+  doesn't inspect candidate structure, so it cannot discriminate
+  same-formula isomers — and the source database has no reference
+  spectrum for any of the three decoys, so spectral-library evidence
+  can't resolve it either. `tests/benchmark_corpus.rs`'s corpus-wide
+  metrics test now asserts this tie explicitly (`margin == 0.0` for
+  these three, `margin > 0.0`, unchanged, for the original three) rather
+  than requiring a top-1 sweep that would no longer be true. See
+  `docs/benchmark.md` and `ROADMAP.md`.
+- Of the 13 La Barbera standards not already in the v0.1 corpus, 9
+  resolve cleanly against the database's master compound table; this
+  round used 3 of those 9. The other 6, plus the database's 580
+  CFM-ID predicted spectra, are recorded as future work, not started
+  this round.
+
 ## [0.2.1] - 2026-08-13
 
 ### Added
