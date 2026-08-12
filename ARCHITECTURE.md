@@ -18,30 +18,58 @@ explanation            (structured, serializable; text is a rendering of it)
 
 ## Module layout
 
+Reflects the actual tree, not the original plan — kept in sync as the
+crate grows (`neutral_loss.rs` was folded into `fragment.rs` since both
+reduce to the same rule-matching mechanics; `candidate_gen/exact_mass.rs`
+was never built, deliberately, per `ROADMAP.md` Phase 8 — v0.1's
+milestone only needed user-supplied candidates).
+
 ```text
 src/
-  lib.rs              public prelude / re-exports
-  error.rs            AdductraError (public error type, no panics in library code)
+  lib.rs                  public prelude / re-exports, crate-level no-panic lints
+  error.rs                AdductraError (public error type, no panics in library code)
+  evaluator.rs            EvidenceEvaluator trait + tolerance_strength (shared
+                           strength-banding heuristic, used by mass/isotope evaluators)
+  candidate_generator.rs  CandidateGenerator trait + UserSuppliedGenerator
+  chem_adapter.rs         thin adapter over `chematic` (SMILES/formula string parsing
+                           only). The only module allowed to import `chematic` types
+                           directly. Does NOT use `chematic::chem::exact_mass` — see below.
+  mass_table.rs           Adductra-owned monoisotopic isotope mass constants,
+                           Formula type, formula→mass, ppm_error
+  rules.rs                FragmentRule / RuleTarget / RuleExpectation + built_in_rules()
+                           (loads rules/dna_adduct_fragments.json via include_str!)
+  ranking.rs              Ranker (deterministic weighted aggregation) + explain()
   model/
-    observation.rs    Observation
-    candidate.rs       AdductCandidate
-    evidence.rs        Evidence, EvidenceKind, EvidenceDirection, EvidenceStrength,
-                        EvidenceSource, EvidenceSet
-    assessment.rs      CandidateAssessment, AdductReport
-    provenance.rs      Provenance
-  chem_adapter.rs      thin adapter over `chematic` (SMILES → Molecule → element-count
-                       formula only). The only module allowed to import `chematic` types
-                       directly. Does NOT use `chematic::chem::exact_mass` — see below.
-  mass_table.rs        Adductra-owned monoisotopic isotope mass constants + formula→mass
+    mod.rs
+    numeric.rs            FiniteF64, NonNegativeF64 (validated newtypes)
+    observation.rs        Observation, ProductIon, IsotopeLabel, IonAdductType
+    candidate.rs          AdductCandidate, NucleobaseOrigin
+    evidence.rs           Evidence, EvidenceKind, EvidenceDirection, EvidenceStrength,
+                           EvidenceDetail, MissingReason, EvidenceSet
+    assessment.rs         CandidateAssessment, AdductReport
+    provenance.rs         Provenance, EvidenceSource
   evidence/
-    mass.rs            exact-mass / precursor-consistency evaluator
-    fragment.rs         diagnostic-fragment evaluator
-    neutral_loss.rs      neutral-loss evaluator (data-driven, see rules/)
-    isotope.rs           isotope-labeling evaluator (Phase 5)
-  candidate_gen/
-    user_supplied.rs    accepts caller-provided candidates
-    exact_mass.rs        generates candidates from a formula/mass search space
-  ranking.rs            deterministic weighted aggregation + explain()
+    mod.rs
+    mass.rs                Mass + PrecursorConsistency evaluator
+    fragment.rs             DiagnosticFragment + NeutralLoss evaluator (rule-driven)
+    isotope.rs               IsotopeLabel evaluator (Phase 5)
+  bin/
+    adductra.rs           CLI (`rank` / `explain`), thin wrapper over the library API
+
+rules/
+  dna_adduct_fragments.json  versioned fragment/neutral-loss rule data (§13)
+
+examples/
+  bench_ranking.rs        §24 perf harness (100/1k/10k candidates, std::time only)
+  masstrust_handoff.rs    demonstrates exporting an AdductReport to masstrust's CSV
+                           input format (not a src/ public API — see its module doc)
+
+tests/
+  properties.rs               property-based tests (proptest)
+  eight_oxo_dg_benchmark.rs   reference case 1: 8-oxo-dG
+  afb1_n7_gua_benchmark.rs    reference case 2: AFB1-N7-Gua / AFB1-FapyGua
+  benchmark_corpus.rs         §15 corpus metrics across both reference cases
+  cli.rs                      CLI smoke tests
 ```
 
 ## Design boundaries
@@ -78,6 +106,22 @@ src/
   fragment rules live as versioned data (see `AGENTS.md` §13), not as
   compound-specific `match` arms, so adding a new literature rule doesn't
   require touching evaluator logic.
+- **Rule targeting is coarse by design, not by oversight.** `RuleTarget`
+  only has `Any` / `NucleobaseOrigin` / `CandidateId` — no "modification
+  type" dimension. `NucleobaseOrigin::Other(String)` is the current
+  workaround for narrowing a rule to a specific modification (e.g.
+  `Other("8-oxo-guanine")`, so 8-oxo-dG-specific CO-loss rules don't also
+  fire on other guanine-derived adducts like AFB1-N7-Gua — a real bug
+  this exact confusion caused once, see `docs/benchmark.md`). Treat this
+  as a load-bearing convention, not a suggestion, when adding new
+  modification-specific rules.
+- **Public library API vs. examples: a deliberate boundary.**
+  `masstrust_handoff.rs` lives in `examples/`, not `src/`, specifically
+  so Adductra's crate API isn't coupled to a still-evolving sibling
+  crate's CSV schema. The same reasoning applies to any future
+  sibling-crate integration: prefer an example demonstrating the
+  hand-off over a permanent public export until the other side's format
+  has stabilized.
 - **No panics in library code.** All fallible paths return
   `Result<_, AdductraError>`. `unwrap`/`expect`/`panic!` are forbidden
   outside of tests (`#![forbid(...)]` where practical).
