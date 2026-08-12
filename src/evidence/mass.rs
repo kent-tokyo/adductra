@@ -284,4 +284,40 @@ mod tests {
             Err(AdductraError::ImpossibleIsotopeCount { .. })
         ));
     }
+
+    #[test]
+    fn custom_adduct_polarity_is_inferred_from_its_own_shift_sign() {
+        let candidate = eight_oxo_dg_base_candidate();
+        let evaluator = MassEvidenceEvaluator::new(10.0).unwrap();
+
+        // Positive mass_shift_da => positive-mode adduct; matching
+        // positive charge should be internally consistent.
+        let custom_positive = IonAdductType::Custom {
+            label: "[M+H]+ (custom)".to_string(),
+            mass_shift_da: PROTON_MASS,
+        };
+        let obs_matching = Observation::new("obs1", 168.0511, 1, custom_positive.clone()).unwrap();
+        let evidence = evaluator.evaluate(&obs_matching, &candidate).unwrap();
+        let precursor_ev = evidence
+            .iter()
+            .find(|e| *e.kind() == EvidenceKind::PrecursorConsistency)
+            .unwrap();
+        assert_eq!(
+            precursor_ev.direction(),
+            crate::model::EvidenceDirection::Supporting
+        );
+
+        // Same positive-shift custom adduct with negative charge is
+        // internally inconsistent, same as the built-in variants.
+        let obs_mismatched = Observation::new("obs1", 168.0511, -1, custom_positive).unwrap();
+        let evidence = evaluator.evaluate(&obs_mismatched, &candidate).unwrap();
+        let precursor_ev = evidence
+            .iter()
+            .find(|e| *e.kind() == EvidenceKind::PrecursorConsistency)
+            .unwrap();
+        assert_eq!(
+            precursor_ev.direction(),
+            crate::model::EvidenceDirection::Contradicting
+        );
+    }
 }

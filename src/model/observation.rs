@@ -212,4 +212,31 @@ mod tests {
         let shift = label.total_shift_da().unwrap();
         assert!((shift - 4.985_175).abs() < 1e-4, "got {shift}");
     }
+
+    #[test]
+    fn custom_ion_adduct_reports_its_own_shift_and_label() {
+        let adduct = IonAdductType::Custom {
+            label: "[M+CH3OH+H]+".to_string(),
+            mass_shift_da: 33.034,
+        };
+        assert_eq!(adduct.mass_shift_da(), 33.034);
+        assert_eq!(adduct.label(), "[M+CH3OH+H]+");
+    }
+
+    #[test]
+    fn custom_ion_adduct_neutral_mass_uses_its_own_shift() {
+        // A custom positive-mode adduct: neutral mass should back out to
+        // (precursor_mz * z) - mass_shift_da, same as the built-in variants.
+        let obs = Observation::new(
+            "obs1",
+            150.0,
+            1,
+            IonAdductType::Custom {
+                label: "[M+X]+".to_string(),
+                mass_shift_da: 10.0,
+            },
+        )
+        .unwrap();
+        assert_eq!(obs.observed_neutral_mass().unwrap(), 140.0);
+    }
 }
