@@ -8,13 +8,13 @@
 //! doc's research pass) reads as built for statistically comparing two
 //! ranking configurations across many trials — overkill, and not
 //! confidently understood well enough to use correctly yet, for
-//! computing straightforward formulas over 2 known-answer cases. Revisit
+//! computing straightforward formulas over 3 known-answer cases. Revisit
 //! when there's an actual A vs. B ranking comparison to run.
 //!
-//! Fixture data intentionally duplicates (small, ~15 lines each) the
-//! setup in `tests/eight_oxo_dg_benchmark.rs` and
-//! `tests/afb1_n7_gua_benchmark.rs` rather than importing from them —
-//! those files are exercising specific evidence-type behaviors and
+//! Fixture data intentionally duplicates (small, ~15-25 lines each) the
+//! setup in `tests/eight_oxo_dg_benchmark.rs`, `tests/afb1_n7_gua_benchmark.rs`,
+//! and `tests/ethenoadenine_benchmark.rs` rather than importing from them
+//! — those files are exercising specific evidence-type behaviors and
 //! already pass; this file adds a corpus-level view without risking a
 //! refactor of already-verified tests.
 
@@ -105,6 +105,41 @@ fn afb1_n7_gua_case() -> BenchmarkCase {
     }
 }
 
+fn etheno_da_case() -> BenchmarkCase {
+    // Third reference case, and the first non-guanine one -- see
+    // tests/ethenoadenine_benchmark.rs for full sourcing. Uses only the
+    // pre-existing generic deoxyribose-loss rule (no adenine-specific
+    // rule data), which is itself the point: this case exercises
+    // generalization, not new rule coverage.
+    let observation = Observation::new("obs-eda-1", 276.109116, 1, IonAdductType::ProtonAdd)
+        .unwrap()
+        .with_product_ions(vec![ProductIon::new(160.061772, Some(100.0)).unwrap()]);
+    let candidates = vec![
+        AdductCandidate::from_formula(
+            "etheno-dA",
+            "1,N6-etheno-2'-deoxyadenosine",
+            "C12H13N5O3",
+            Provenance::derived("corpus"),
+        )
+        .unwrap()
+        .with_nucleobase_origin(NucleobaseOrigin::Adenine),
+        AdductCandidate::from_formula(
+            "etheno-dG",
+            "1,N2-etheno-2'-deoxyguanosine (real, co-formed, wrong mass for this spectrum)",
+            "C12H13N5O4",
+            Provenance::derived("corpus"),
+        )
+        .unwrap()
+        .with_nucleobase_origin(NucleobaseOrigin::Guanine),
+    ];
+    BenchmarkCase {
+        name: "etheno-dA",
+        observation,
+        candidates,
+        correct_candidate_id: "etheno-dA",
+    }
+}
+
 fn rank_case(case: &BenchmarkCase) -> Vec<CandidateAssessment> {
     let mass_evaluator = MassEvidenceEvaluator::new(10.0).unwrap();
     let fragment_evaluator = FragmentEvidenceEvaluator::with_built_in_rules().unwrap();
@@ -165,7 +200,7 @@ fn evidence_coverage(assessment: &CandidateAssessment) -> f64 {
 
 #[test]
 fn corpus_metrics_meet_v01_baseline() {
-    let cases = [eight_oxo_dg_case(), afb1_n7_gua_case()];
+    let cases = [eight_oxo_dg_case(), afb1_n7_gua_case(), etheno_da_case()];
     let n = cases.len() as f64;
 
     let mut top_1_hits = 0usize;
@@ -227,7 +262,7 @@ fn corpus_metrics_meet_v01_baseline() {
          candidate_reduction={candidate_reduction:.2} (n={n})"
     );
 
-    // Baseline assertions for a 2-case v0.1 corpus: both known adducts
+    // Baseline assertions for a 3-case v0.1 corpus: every known adduct
     // must rank first with a positive margin over every decoy, and get
     // fully-evaluable evidence (no evidence-type gaps for the *correct*
     // candidate specifically). Tightening these as the corpus grows is

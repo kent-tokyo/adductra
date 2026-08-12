@@ -236,6 +236,24 @@ C22H17N5O8 as the neutral "M" and the observed ion as ordinary
 literature it's checked against, not because the physical picture is
 that simple.
 
+**Update (third case: 1,N6-ethenoadenine, `tests/ethenoadenine_benchmark.rs`).**
+Both prior cases are guanine-derived, so this case was added specifically
+to test whether the evidence engine generalizes to a different nucleobase
+family rather than happening to work for guanine chemistry. Source: Cui
+et al., *Int J Environ Res Public Health* 2014, 11(10):10902-10914,
+doi:10.3390/ijerph111010902 (open text: PMC4211013) — positive ESI,
+[M+H]+, ¹⁵N₅-labeled internal standard. Formulas (εdA nucleoside
+C12H13N5O3, CID 4250940; εdA free base C7H5N5, CID 104994; εdG decoy
+C12H13N5O4) cross-checked against PubChem. All masses independently
+hand-computed and confirmed to reproduce the paper's reported nominal
+m/z (276, 160, 281) exactly. Notably this case required **zero new rule
+data**: the etheno bridge is fused entirely into the base, so the
+existing nucleobase-agnostic deoxyribose-loss rule (originally written
+for and verified against 8-oxo-dG) already covers its diagnostic
+fragment, independently computed at 116.047344 Da against the rule's
+existing 116.0473 Da — real corroborating evidence the rule is generic,
+not guanine-specific-by-coincidence.
+
 ## 6. Differentiation assessment
 
 Existing infrastructure solves narrow slices: curated databases

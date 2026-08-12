@@ -2,7 +2,7 @@
 
 Implements the v0.1 milestone slice of `AGENTS.md` §15/§27 Phase 6.
 Sources: `tests/eight_oxo_dg_benchmark.rs`, `tests/afb1_n7_gua_benchmark.rs`,
-`tests/benchmark_corpus.rs`.
+`tests/ethenoadenine_benchmark.rs`, `tests/benchmark_corpus.rs`.
 
 ## Fixture 1: 8-oxo-2'-deoxyguanosine
 
@@ -73,29 +73,67 @@ contradicts — that one is a milder, already-documented scope limitation
 (see `src/evidence/fragment.rs`'s module doc), not a correctness bug: its
 "not observed" verdict is factually true for this candidate.
 
+## Fixture 3: 1,N6-ethenoadenine (εdA) — the first non-guanine case
+
+Reference case selection: `docs/landscape.md` §5 (added specifically to
+stress-test generalization — both prior cases are guanine-derived).
+Sourced from Cui et al., *Int J Environ Res Public Health* 2014,
+11(10):10902–10914, doi:10.3390/ijerph111010902 (open text: PMC4211013).
+One observation matching εdA's published spectrum (`[M+H]+` precursor
+m/z 276.109116, single fragment at 160.061772 — deoxyribose loss to the
+free-base ion) evaluated against a real, distinct, commonly co-measured
+decoy:
+
+```text
+etheno-dA   correct candidate, C12H13N5O3, Adenine origin
+etheno-dG   1,N2-etheno-2'-deoxyguanosine, C12H13N5O4, Guanine origin —
+            real co-formed adduct, genuinely wrong mass for this
+            spectrum (~16 Da off, one more oxygen)
+```
+
+**The point of this fixture is what it *doesn't* add**: zero new rule
+data. The etheno bridge is fused entirely into the base (adenine's N1
+and exocyclic N6), so the sugar/glycosidic bond is chemically untouched
+— the pre-existing nucleobase-agnostic `nucleoside-deoxyribose-loss`
+rule (`target: "Any"`, originally written for and verified against
+8-oxo-dG) already covers εdA's one diagnostic transition, and does so
+correctly: independently hand-computed at 116.047344 Da vs. the rule's
+existing 116.0473 Da, matching to 4 significant figures. That's real
+corroborating evidence the rule is generically correct, not merely
+correct-by-coincidence for guanine chemistry — recorded in the rule's
+own citation field (`rules/dna_adduct_fragments.json`, bumped to
+v1.1.0).
+
+A second test (`fifteen_n5_labeled_etheno_da_shift_supported_by_isotope_evidence`)
+reuses the same ¹⁵N₅/6th-label-impossible pattern as the AFB1 fixture —
+adenine's ring also has exactly 5 nitrogens.
+
 ## Benchmark categories from §15 — coverage so far
 
 ```text
-known positive adducts          done (8-oxo-dG, AFB1-N7-Gua)
-decoy / competing candidates    done (adenine-isomer; AFB1-FapyGua as a
-                                 real-structure "decoy" for the wrong obs)
+known positive adducts          done (8-oxo-dG, AFB1-N7-Gua, etheno-dA)
+decoy / competing candidates    done (adenine-isomer; AFB1-FapyGua and
+                                 etheno-dG as real-structure "decoys"
+                                 for the wrong observation)
 mass-close alternatives         done (mass-close-decoy)
 missing-evidence cases          done (precursor-only observation test)
 contradictory-evidence cases    done (present-but-wrong fragment peaks;
                                  mass-close-decoy is mass/precursor-
                                  contradicted)
+non-guanine generalization      done (etheno-dA — different nucleobase,
+                                 zero new rule data needed)
 ```
 
 ## Corpus metrics (`tests/benchmark_corpus.rs`)
 
-Both fixtures above are re-assembled (small, independent copies of their
-observation/candidate setup — see that file's module doc for why it
-doesn't import from the two files above) into a 2-case corpus and scored
-against §15's metric list:
+All three fixtures above are re-assembled (small, independent copies of
+their observation/candidate setup — see that file's module doc for why
+it doesn't import from the fixture files) into a 3-case corpus and
+scored against §15's metric list:
 
 ```text
 top_1_accuracy=1.00  top_2_recall=1.00  mrr=1.00
-mean_margin=14.00  mean_evidence_coverage=0.83  candidate_reduction=0.40
+mean_margin=13.33  mean_evidence_coverage=0.81  candidate_reduction=0.43
 ```
 
 (Numbers as of this writing — see the test's own `println!` output for
@@ -110,14 +148,16 @@ ranking fails CI rather than silently drifting.
 Not using `veridict` for this (`docs/landscape.md` §3 earmarks it for
 exactly this role) — its real API reads as built for statistically
 comparing two ranking *configurations* across many trials (win-rate,
-bootstrap CI, SPRT), which isn't the shape of "compute MRR over 2
-known-answer cases." Worth revisiting once there's an actual A-vs-B
-ranking comparison to run (e.g. comparing two `Ranker` weight
+bootstrap CI, SPRT), which isn't the shape of "compute MRR over a
+handful of known-answer cases." Worth revisiting once there's an actual
+A-vs-B ranking comparison to run (e.g. comparing two `Ranker` weight
 configurations).
 
 ## Not yet built
 
-Only 2 reference cases — a third (independent of guanine-derived
-adducts) would meaningfully stress-test whether the evidence model
-generalizes, and would give the corpus metrics above more than 2 data
-points to be meaningful over.
+Three reference cases, still a small corpus. A fourth case exercising
+diagnostic-fragment (not just neutral-loss) evidence on a non-guanine
+base, or a genuinely cross-linked/multi-nucleobase adduct (colibactin,
+deferred as "hard mode" in `docs/landscape.md` §5), would be natural
+next additions once there's a specific gap to fill rather than
+generalization to prove.

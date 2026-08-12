@@ -9,8 +9,8 @@
       "tolerance_da": 0.01
     },
     "source": "Literature",
-    "citation": "Deoxyribose loss (C5H8O4, delta 116.0473 Da) is the canonical nucleoside->base CID transition; see docs/landscape.md sec 5 (8-oxo-dG reference case) and its cited sources.",
-    "version": "1.0.0"
+    "citation": "Deoxyribose loss (C5H8O4, delta 116.0473 Da) is the canonical nucleoside->base CID transition; see docs/landscape.md sec 5. Independently corroborated across two unrelated nucleobase families: 8-oxo-dG (guanine-derived, this rule's original source) and 1,N6-ethenoadenine (adenine-derived; Cui et al., Int J Environ Res Public Health 2014, 11(10):10902-10914, doi:10.3390/ijerph111010902) -- see tests/ethenoadenine_benchmark.rs.",
+    "version": "1.1.0"
   },
   {
     "id": "8-oxo-gua-co-loss-1",
