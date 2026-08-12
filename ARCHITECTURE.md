@@ -66,9 +66,12 @@ examples/
 
 tests/
   properties.rs               property-based tests (proptest)
-  eight_oxo_dg_benchmark.rs   reference case 1: 8-oxo-dG
-  afb1_n7_gua_benchmark.rs    reference case 2: AFB1-N7-Gua / AFB1-FapyGua
-  benchmark_corpus.rs         §15 corpus metrics across both reference cases
+  eight_oxo_dg_benchmark.rs   reference case 1: 8-oxo-dG (guanine)
+  afb1_n7_gua_benchmark.rs    reference case 2: AFB1-N7-Gua / AFB1-FapyGua (guanine)
+  ethenoadenine_benchmark.rs  reference case 3: 1,N6-ethenoadenine (adenine — the
+                              first non-guanine case, deliberately added zero new
+                              rule data as a generalization test)
+  benchmark_corpus.rs         §15 corpus metrics across all three reference cases
   cli.rs                      CLI smoke tests
 ```
 
