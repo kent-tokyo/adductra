@@ -3,11 +3,9 @@
 All notable changes to Adductra are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/);
-versioning follows [Semantic Versioning](https://semver.org/) once a
-first version ships. Nothing has been published to crates.io yet — see
-`ROADMAP.md`'s "v0.1.0 readiness review" for release status.
+versioning follows [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.1.0] - 2026-08-12
 
 ### Added
 
