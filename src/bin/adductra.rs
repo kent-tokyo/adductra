@@ -3,7 +3,7 @@
 //! ponytail: input is plain JSON (`Observation` / `Vec<AdductCandidate>`,
 //! Adductra's own serde types), not the `.mgf` spectrum file §18's
 //! example shows — parsing vendor/community spectrum formats is
-//! explicitly out of v0.1 scope (`AGENTS.md` §3: "raw vendor format
+//! deliberately out of scope (`AGENTS.md` §3: "raw vendor format
 //! parser"). Add an MGF reader (or reuse `mzdata`, see
 //! `docs/landscape.md` §4) when a real workflow needs it; this CLI stays
 //! a wrapper either way.
@@ -16,7 +16,7 @@ use std::process::ExitCode;
 use adductra::{
     AdductCandidate, CandidateAssessment, EvidenceEvaluator, EvidenceSet,
     FragmentEvidenceEvaluator, IsotopeEvidenceEvaluator, MassEvidenceEvaluator, Observation,
-    Ranker, explain,
+    Ranker, ReferenceSpectrum, SpectralLibraryEvidenceEvaluator, explain,
 };
 
 const USAGE: &str = "\
@@ -28,13 +28,23 @@ causal exposure.
 USAGE:
     adductra rank    --observation <file.json> --candidates <file.json>
                       [--tolerance-ppm <ppm>] [--isotope-tolerance-da <da>]
+                      [--reference-spectra <file.json>]
+                      [--spectral-mz-tolerance-da <da>]
+                      [--spectral-similarity-threshold <t>]
     adductra explain --observation <file.json> --candidates <file.json>
                       --candidate-id <id> [--json]
                       [--tolerance-ppm <ppm>] [--isotope-tolerance-da <da>]
+                      [--reference-spectra <file.json>]
+                      [--spectral-mz-tolerance-da <da>]
+                      [--spectral-similarity-threshold <t>]
 
 --observation is a single JSON Observation object.
 --candidates is a JSON array of AdductCandidate objects.
 --tolerance-ppm defaults to 10.0, --isotope-tolerance-da to 0.005.
+--reference-spectra is an optional JSON array of ReferenceSpectrum; when
+given, spectral-library-match evidence is added for candidates with a
+matching entry. --spectral-mz-tolerance-da defaults to 0.01,
+--spectral-similarity-threshold to 0.7 (must be in (0.5, 1.0)).
 ";
 
 struct Args {
@@ -44,6 +54,9 @@ struct Args {
     isotope_tolerance_da: f64,
     candidate_id: Option<String>,
     json: bool,
+    reference_spectra: Option<String>,
+    spectral_mz_tolerance_da: f64,
+    spectral_similarity_threshold: f64,
 }
 
 fn next_value(args: &[String], i: &mut usize) -> Result<String, String> {
@@ -62,6 +75,9 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
     let mut isotope_tolerance_da = 0.005;
     let mut candidate_id = None;
     let mut json = false;
+    let mut reference_spectra = None;
+    let mut spectral_mz_tolerance_da = 0.01;
+    let mut spectral_similarity_threshold = 0.7;
 
     let mut i = 0;
     while i < args.len() {
@@ -83,6 +99,17 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
                 json = true;
                 i += 1;
             }
+            "--reference-spectra" => reference_spectra = Some(next_value(args, &mut i)?),
+            "--spectral-mz-tolerance-da" => {
+                spectral_mz_tolerance_da = next_value(args, &mut i)?
+                    .parse()
+                    .map_err(|_| "invalid --spectral-mz-tolerance-da".to_string())?;
+            }
+            "--spectral-similarity-threshold" => {
+                spectral_similarity_threshold = next_value(args, &mut i)?
+                    .parse()
+                    .map_err(|_| "invalid --spectral-similarity-threshold".to_string())?;
+            }
             other => return Err(format!("unknown argument: {other}")),
         }
     }
@@ -94,6 +121,9 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
         isotope_tolerance_da,
         candidate_id,
         json,
+        reference_spectra,
+        spectral_mz_tolerance_da,
+        spectral_similarity_threshold,
     })
 }
 
@@ -107,11 +137,34 @@ fn load_candidates(path: &str) -> Result<Vec<AdductCandidate>, String> {
     serde_json::from_str(&text).map_err(|e| format!("parsing {path}: {e}"))
 }
 
+fn load_reference_spectra(path: &str) -> Result<Vec<ReferenceSpectrum>, String> {
+    let text = fs::read_to_string(path).map_err(|e| format!("reading {path}: {e}"))?;
+    serde_json::from_str(&text).map_err(|e| format!("parsing {path}: {e}"))
+}
+
+fn build_spectral_evaluator(
+    args: &Args,
+) -> Result<Option<SpectralLibraryEvidenceEvaluator>, String> {
+    args.reference_spectra
+        .as_deref()
+        .map(|path| {
+            let reference_spectra = load_reference_spectra(path)?;
+            SpectralLibraryEvidenceEvaluator::new(
+                reference_spectra,
+                args.spectral_mz_tolerance_da,
+                args.spectral_similarity_threshold,
+            )
+            .map_err(|e| e.to_string())
+        })
+        .transpose()
+}
+
 fn assess_all(
     observation: &Observation,
     candidates: &[AdductCandidate],
     tolerance_ppm: f64,
     isotope_tolerance_da: f64,
+    spectral: Option<&SpectralLibraryEvidenceEvaluator>,
 ) -> Result<Vec<CandidateAssessment>, String> {
     let mass_evaluator = MassEvidenceEvaluator::new(tolerance_ppm).map_err(|e| e.to_string())?;
     let fragment_evaluator =
@@ -135,6 +188,13 @@ fn assess_all(
                     .evaluate(observation, candidate)
                     .map_err(|e| format!("candidate {}: {e}", candidate.id))?,
             );
+            if let Some(spectral_evaluator) = spectral {
+                evidence.extend(
+                    spectral_evaluator
+                        .evaluate(observation, candidate)
+                        .map_err(|e| format!("candidate {}: {e}", candidate.id))?,
+                );
+            }
             Ok(CandidateAssessment::new(
                 candidate.id.clone(),
                 EvidenceSet::new(evidence),
@@ -146,11 +206,13 @@ fn assess_all(
 fn cmd_rank(args: &Args) -> Result<(), String> {
     let observation = load_observation(&args.observation)?;
     let candidates = load_candidates(&args.candidates)?;
+    let spectral_evaluator = build_spectral_evaluator(args)?;
     let assessments = assess_all(
         &observation,
         &candidates,
         args.tolerance_ppm,
         args.isotope_tolerance_da,
+        spectral_evaluator.as_ref(),
     )?;
     let ranked = Ranker::new().rank(assessments);
 
@@ -173,11 +235,13 @@ fn cmd_explain(args: &Args) -> Result<(), String> {
         .candidate_id
         .clone()
         .ok_or_else(|| "explain requires --candidate-id".to_string())?;
+    let spectral_evaluator = build_spectral_evaluator(args)?;
     let assessments = assess_all(
         &observation,
         &candidates,
         args.tolerance_ppm,
         args.isotope_tolerance_da,
+        spectral_evaluator.as_ref(),
     )?;
     let ranked = Ranker::new().rank(assessments);
     let assessment = ranked

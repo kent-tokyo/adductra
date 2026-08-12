@@ -98,6 +98,103 @@ fn explain_json_round_trips_as_valid_explanation() {
     std::fs::remove_file(candidates_path).ok();
 }
 
+const REFERENCE_SPECTRA_JSON: &str = r#"[
+    {
+        "candidate_id": "8-oxo-dG",
+        "peaks": [
+            {"mz": 168.0516, "intensity": 100.0},
+            {"mz": 140.0567, "intensity": 40.0},
+            {"mz": 112.0618, "intensity": 15.0}
+        ],
+        "source": "Literature",
+        "version": "1.0.0"
+    }
+]"#;
+
+#[test]
+fn rank_with_partial_reference_spectra_keeps_order_and_shows_spectral_evidence() {
+    let obs_path = write_temp("obs3.json", OBSERVATION_JSON);
+    let candidates_path = write_temp("candidates3.json", CANDIDATES_JSON);
+    let spectra_path = write_temp("spectra3.json", REFERENCE_SPECTRA_JSON);
+
+    let rank_output = Command::new(env!("CARGO_BIN_EXE_adductra"))
+        .args([
+            "rank",
+            "--observation",
+            obs_path.to_str().unwrap(),
+            "--candidates",
+            candidates_path.to_str().unwrap(),
+            "--reference-spectra",
+            spectra_path.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+
+    assert!(rank_output.status.success(), "{rank_output:?}");
+    let stdout = String::from_utf8(rank_output.stdout).unwrap();
+    let lines: Vec<&str> = stdout.lines().collect();
+    assert!(lines[1].contains("8-oxo-dG"), "{stdout}");
+    assert!(lines[2].contains("adenine-isomer"), "{stdout}");
+
+    let explain_output = Command::new(env!("CARGO_BIN_EXE_adductra"))
+        .args([
+            "explain",
+            "--observation",
+            obs_path.to_str().unwrap(),
+            "--candidates",
+            candidates_path.to_str().unwrap(),
+            "--candidate-id",
+            "8-oxo-dG",
+            "--reference-spectra",
+            spectra_path.to_str().unwrap(),
+            "--json",
+        ])
+        .output()
+        .unwrap();
+
+    assert!(explain_output.status.success(), "{explain_output:?}");
+    let explain_stdout = String::from_utf8(explain_output.stdout).unwrap();
+    assert!(
+        explain_stdout.contains("cosine similarity"),
+        "{explain_stdout}"
+    );
+
+    std::fs::remove_file(obs_path).ok();
+    std::fs::remove_file(candidates_path).ok();
+    std::fs::remove_file(spectra_path).ok();
+}
+
+#[test]
+fn invalid_spectral_threshold_errors_cleanly_not_a_panic() {
+    let obs_path = write_temp("obs4.json", OBSERVATION_JSON);
+    let candidates_path = write_temp("candidates4.json", CANDIDATES_JSON);
+    let spectra_path = write_temp("spectra4.json", REFERENCE_SPECTRA_JSON);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_adductra"))
+        .args([
+            "rank",
+            "--observation",
+            obs_path.to_str().unwrap(),
+            "--candidates",
+            candidates_path.to_str().unwrap(),
+            "--reference-spectra",
+            spectra_path.to_str().unwrap(),
+            "--spectral-similarity-threshold",
+            "0.3",
+        ])
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("error:"), "{stderr}");
+    assert!(!stderr.contains("panicked"), "{stderr}");
+
+    std::fs::remove_file(obs_path).ok();
+    std::fs::remove_file(candidates_path).ok();
+    std::fs::remove_file(spectra_path).ok();
+}
+
 #[test]
 fn missing_file_errors_cleanly_not_a_panic() {
     let output = Command::new(env!("CARGO_BIN_EXE_adductra"))

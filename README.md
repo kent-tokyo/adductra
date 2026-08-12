@@ -30,6 +30,7 @@ ranking score as a calibrated probability.
        │ MS/MS           │
        │ neutral losses  │
        │ isotope labels  │
+       │ spectral library│
        │ structure       │
        └────────┬────────┘
                 │
@@ -51,13 +52,13 @@ ranking score as a calibrated probability.
 
 [![Crates.io](https://img.shields.io/crates/v/adductra.svg)](https://crates.io/crates/adductra)
 
-v0.1.0, published to crates.io. Still under active development — see
+v0.2.1, published to crates.io. Still under active development — see
 `docs/landscape.md` for the Phase 0 design survey, `docs/benchmark.md`
 for what's been validated so far, and `CHANGELOG.md` for release notes.
 
 ```toml
 [dependencies]
-adductra = "0.1"
+adductra = "0.2"
 ```
 
 ## CLI
@@ -65,12 +66,18 @@ adductra = "0.1"
 ```bash
 adductra rank    --observation obs.json --candidates candidates.json
 adductra explain --observation obs.json --candidates candidates.json --candidate-id 8-oxo-dG [--json]
+
+# optionally add spectral-library-match evidence against known reference spectra
+adductra rank --observation obs.json --candidates candidates.json \
+    --reference-spectra spectra.json \
+    [--spectral-mz-tolerance-da 0.01] [--spectral-similarity-threshold 0.7]
 ```
 
 `--observation` is a single JSON `Observation`, `--candidates` a JSON
-array of `AdductCandidate` — Adductra's own serde types, not a vendor
-spectrum format (`.mgf`/raw-format parsing is deliberately out of v0.1
-scope; see `src/bin/adductra.rs`'s module doc for the rationale).
+array of `AdductCandidate`, `--reference-spectra` an optional JSON array
+of `ReferenceSpectrum` — Adductra's own serde types, not a vendor
+spectrum format (`.mgf`/raw-format parsing is deliberately out of scope;
+see `src/bin/adductra.rs`'s module doc for the rationale).
 
 ## Ecosystem
 

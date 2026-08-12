@@ -5,6 +5,23 @@ All notable changes to Adductra are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/);
 versioning follows [Semantic Versioning](https://semver.org/).
 
+## [0.2.1] - 2026-08-13
+
+### Added
+
+- CLI: `adductra rank`/`explain` gain `--reference-spectra <file.json>`,
+  `--spectral-mz-tolerance-da` (default `0.01`), and
+  `--spectral-similarity-threshold` (default `0.7`), wiring
+  `SpectralLibraryEvidenceEvaluator` (added in 0.2.0) into the CLI for
+  the first time. Without `--reference-spectra`, behavior is unchanged
+  from 0.2.0.
+
+### Fixed
+
+- `README.md` still referenced `v0.1.0`/`adductra = "0.1"` after the
+  0.2.0 release; updated to `0.2.1`/`"0.2"`, and the evidence-engine
+  diagram now lists spectral-library matching.
+
 ## [0.2.0] - 2026-08-12
 
 ### Added
