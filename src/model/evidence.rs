@@ -494,4 +494,39 @@ mod tests {
         assert!(set.is_empty());
         assert_eq!(set.supporting().count(), 0);
     }
+
+    #[test]
+    fn by_kind_filters_to_only_matching_evidence() {
+        let mass_ev = Evidence::supporting(
+            EvidenceKind::Mass,
+            "mass",
+            EvidenceDetail::Generic {
+                expected: "x".into(),
+                observed: None,
+            },
+            EvidenceStrength::Strong,
+            EvidenceSource::Derived,
+            "m",
+            prov(),
+        );
+        let fragment_ev = Evidence::contradicting(
+            EvidenceKind::DiagnosticFragment,
+            "fragment",
+            EvidenceDetail::Generic {
+                expected: "y".into(),
+                observed: None,
+            },
+            EvidenceStrength::Weak,
+            EvidenceSource::Derived,
+            "f",
+            prov(),
+        );
+        let set = EvidenceSet::new(vec![mass_ev, fragment_ev]);
+
+        let mass_only: Vec<_> = set.by_kind(&EvidenceKind::Mass).collect();
+        assert_eq!(mass_only.len(), 1);
+        assert_eq!(*mass_only[0].kind(), EvidenceKind::Mass);
+
+        assert_eq!(set.by_kind(&EvidenceKind::NeutralLoss).count(), 0);
+    }
 }

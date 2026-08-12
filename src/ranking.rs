@@ -304,4 +304,21 @@ mod tests {
         let ranker = Ranker::new();
         assert_eq!(ranker.score(&EvidenceSet::default()), 0.0);
     }
+
+    #[test]
+    fn kind_weight_scales_that_kinds_contribution_only() {
+        let mass_evidence = ev(true, EvidenceStrength::Strong); // EvidenceKind::Mass
+        let default_score = Ranker::new().score(&EvidenceSet::new(vec![mass_evidence.clone()]));
+
+        let doubled = Ranker::new()
+            .with_kind_weight(EvidenceKind::Mass, 2.0)
+            .score(&EvidenceSet::new(vec![mass_evidence.clone()]));
+        assert_eq!(doubled, default_score * 2.0);
+
+        // Weighting a *different* kind must not touch Mass evidence's score.
+        let unaffected = Ranker::new()
+            .with_kind_weight(EvidenceKind::DiagnosticFragment, 100.0)
+            .score(&EvidenceSet::new(vec![mass_evidence]));
+        assert_eq!(unaffected, default_score);
+    }
 }
