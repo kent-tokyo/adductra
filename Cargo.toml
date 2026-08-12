@@ -2,8 +2,13 @@
 name = "adductra"
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.85"
 description = "Evidence-first Rust toolkit for identifying and explaining DNA adduct candidates from mass-spectrometric and structural evidence."
 license = "MIT OR Apache-2.0"
+repository = "https://github.com/kent-tokyo/adductra"
+readme = "README.md"
+keywords = ["mass-spectrometry", "cheminformatics", "bioinformatics", "dna-adducts"]
+categories = ["science"]
 
 [dependencies]
 chematic = { version = "0.14", default-features = false, features = ["smiles", "chem"] }
