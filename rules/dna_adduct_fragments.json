@@ -15,7 +15,11 @@
   {
     "id": "8-oxo-gua-co-loss-1",
     "description": "First sequential CO loss from the protonated 8-oxoguanine base ion (m/z 168 -> 140).",
-    "target": { "NucleobaseOrigin": "Guanine" },
+    "target": {
+      "NucleobaseOrigin": {
+        "Other": "8-oxo-guanine"
+      }
+    },
     "expectation": {
       "kind": "DiagnosticFragment",
       "expected_mz": 140.0567,
@@ -28,7 +32,11 @@
   {
     "id": "8-oxo-gua-co-loss-2",
     "description": "Second sequential CO loss from the 8-oxoguanine fragment ion (m/z 140 -> 112).",
-    "target": { "NucleobaseOrigin": "Guanine" },
+    "target": {
+      "NucleobaseOrigin": {
+        "Other": "8-oxo-guanine"
+      }
+    },
     "expectation": {
       "kind": "DiagnosticFragment",
       "expected_mz": 112.0618,
@@ -36,6 +44,66 @@
     },
     "source": "Literature",
     "citation": "8-oxo-dG diagnostic ions m/z 140/112 via sequential CO loss; see docs/landscape.md sec 5.",
+    "version": "1.0.0"
+  },
+  {
+    "id": "afb1-n7-gua-guanine-retained-fragment",
+    "description": "AFB1-N7-guanine adduct: N7(guanine)-C8(AFB1) bond cleavage retaining charge on the guanine side, i.e. loss of the AFB1-derived C17H12O7 fragment, yielding protonated guanine (m/z ~152). Targeted by candidate id, not nucleobase origin, because this fragmentation is specific to the AFB1-N7-Gua conjugate, not to guanine-derived adducts in general.",
+    "target": {
+      "CandidateId": "AFB1-N7-Gua"
+    },
+    "expectation": {
+      "kind": "NeutralLoss",
+      "expected_delta_da": 328.058303,
+      "tolerance_da": 0.01
+    },
+    "source": "Literature",
+    "citation": "Jaruga et al., ACS Omega 2023, 8(16):14841-14854, doi:10.1021/acsomega.3c01328 (open text: PMC10134230). m/z 152/329 complementary fragment pair from N7(Gua)-C8(AFB1) bond cleavage; see docs/landscape.md sec 5.",
+    "version": "1.0.0"
+  },
+  {
+    "id": "afb1-n7-gua-afb1-retained-fragment",
+    "description": "AFB1-N7-guanine adduct: complementary cleavage channel retaining charge on the AFB1 side, i.e. loss of neutral guanine (C5H5N5O), yielding a protonated AFB1-diol fragment (m/z ~329).",
+    "target": {
+      "CandidateId": "AFB1-N7-Gua"
+    },
+    "expectation": {
+      "kind": "NeutralLoss",
+      "expected_delta_da": 151.04941,
+      "tolerance_da": 0.01
+    },
+    "source": "Literature",
+    "citation": "Jaruga et al., ACS Omega 2023, 8(16):14841-14854, doi:10.1021/acsomega.3c01328 (open text: PMC10134230).",
+    "version": "1.0.0"
+  },
+  {
+    "id": "afb1-fapygua-water-loss",
+    "description": "AFB1-FapyGua (ring-opened formamidopyrimidine adduct): loss of H2O from the protonated precursor, a dehydrative re-closure toward an N7-Gua-like ion. Note: this numerically coincides with AFB1-N7-Gua's own [M+H]+ mass -- a known isobaric-fragment ambiguity between these two related adducts that this rule set does not disambiguate on its own.",
+    "target": {
+      "CandidateId": "AFB1-FapyGua"
+    },
+    "expectation": {
+      "kind": "NeutralLoss",
+      "expected_delta_da": 18.010565,
+      "tolerance_da": 0.01
+    },
+    "source": "Literature",
+    "citation": "Jaruga et al., ACS Omega 2023, 8(16):14841-14854, doi:10.1021/acsomega.3c01328 (open text: PMC10134230).",
+    "version": "1.0.0"
+  },
+  {
+    "id": "afb1-fapygua-water-and-co-loss",
+    "description": "AFB1-FapyGua: sequential loss of H2O and CO from the protonated precursor -- decarbonylation of the ring-opened formamide group, the classic Fapy-adduct CID signature.",
+    "target": {
+      "CandidateId": "AFB1-FapyGua"
+    },
+    "expectation": {
+      "kind": "NeutralLoss",
+      "expected_delta_da": 46.005479,
+      "tolerance_da": 0.01
+    },
+    "source": "Literature",
+    "citation": "Jaruga et al., ACS Omega 2023, 8(16):14841-14854, doi:10.1021/acsomega.3c01328 (open text: PMC10134230).",
     "version": "1.0.0"
   }
 ]

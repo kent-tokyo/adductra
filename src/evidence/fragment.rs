@@ -189,7 +189,7 @@ mod tests {
             Provenance::derived("fixture"),
         )
         .unwrap()
-        .with_nucleobase_origin(NucleobaseOrigin::Guanine)
+        .with_nucleobase_origin(NucleobaseOrigin::Other("8-oxo-guanine".to_string()))
     }
 
     fn full_ms2_observation() -> Observation {

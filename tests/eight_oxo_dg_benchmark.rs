@@ -36,10 +36,16 @@ fn known_adduct_outranks_decoys_with_explainable_evidence() {
         Provenance::derived("benchmark-fixture"),
     )
     .unwrap()
-    .with_nucleobase_origin(NucleobaseOrigin::Guanine);
+    .with_nucleobase_origin(NucleobaseOrigin::Other("8-oxo-guanine".to_string()));
+    // Note on tagging: the CO-loss rules target `Other("8-oxo-guanine")`,
+    // not the generic `NucleobaseOrigin::Guanine`, specifically so they
+    // don't also fire on other guanine-derived adducts that aren't
+    // 8-oxo-modified (e.g. AFB1-N7-Gua, tests/afb1_n7_gua_benchmark.rs) —
+    // found by adding that second fixture and seeing the CO-loss rules
+    // incorrectly match it under the old, broader targeting.
 
     // Same formula/mass as the correct candidate (an isomer), but tagged
-    // with the wrong nucleobase origin — the guanine-specific CO-loss
+    // with a different nucleobase origin — the 8-oxo-specific CO-loss
     // rules won't apply to it, so it accumulates less corroborating
     // evidence even though its mass matches.
     let isomeric_decoy = AdductCandidate::from_formula(
@@ -143,7 +149,7 @@ fn missing_ms2_data_still_ranks_on_mass_alone_without_false_contradiction() {
         Provenance::derived("benchmark-fixture"),
     )
     .unwrap()
-    .with_nucleobase_origin(NucleobaseOrigin::Guanine);
+    .with_nucleobase_origin(NucleobaseOrigin::Other("8-oxo-guanine".to_string()));
 
     let mass_evaluator = MassEvidenceEvaluator::new(10.0).unwrap();
     let fragment_evaluator = FragmentEvidenceEvaluator::with_built_in_rules().unwrap();
@@ -175,7 +181,7 @@ fn present_but_wrong_fragment_peaks_lower_the_ranking_score() {
         Provenance::derived("benchmark-fixture"),
     )
     .unwrap()
-    .with_nucleobase_origin(NucleobaseOrigin::Guanine);
+    .with_nucleobase_origin(NucleobaseOrigin::Other("8-oxo-guanine".to_string()));
 
     let matching_obs = observation();
     let wrong_peaks_obs =

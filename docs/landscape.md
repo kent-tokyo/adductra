@@ -200,6 +200,32 @@ Both have purchasable/well-documented standards and mass+fragment data
 concentrated in a small number of papers, which keeps Phase 6 benchmark
 construction tractable.
 
+**Update (AFB1-N7-Gua / FapyGua case built, `tests/afb1_n7_gua_benchmark.rs`).**
+A follow-up research pass verified this case in more depth before coding
+it, and found the NIST link above is a thin 2018 SOT conference-abstract
+record with no formula/m/z data on the page itself, not a paper — the
+actual data (formulas, fragment m/z, ¹⁵N₅ labeling scheme) came from the
+open-access full text of the ACS Omega 2023 paper
+([PMC10134230](https://pmc.ncbi.nlm.nih.gov/articles/PMC10134230/)), with
+a peer-reviewed corroborating (abstract-only verified) sibling paper:
+Coskun et al., *Chem. Res. Toxicol.* 2019, 32(1):80-89,
+[doi:10.1021/acs.chemrestox.8b00202](https://pubs.acs.org/doi/10.1021/acs.chemrestox.8b00202),
+[PMID 30525498](https://pubmed.ncbi.nlm.nih.gov/30525498/). Formulas
+(AFB1-N7-Gua: C22H17N5O8; AFB1-FapyGua: C22H19N5O9, i.e. N7-Gua + H2O)
+cross-checked against PubChem CID 135625225 and CID 135854982, and all
+fragment/precursor masses used in the rules and test fixture were
+independently hand-computed from those formulas against
+`mass_table`'s own constants — not copied from the paper's rounded
+values — then confirmed to reproduce the paper's reported nominal m/z
+(152, 329, 480, 498, 452) exactly. One structural caveat worth flagging:
+the guanine N7 in this adduct is a quaternized, intrinsically
+positively-charged imidazolium nitrogen, yet the field's own convention
+(and the only arithmetic that reproduces the reported m/z) treats
+C22H17N5O8 as the neutral "M" and the observed ion as ordinary
+`[M+H]+` — Adductra follows that convention for consistency with the
+literature it's checked against, not because the physical picture is
+that simple.
+
 ## 6. Differentiation assessment
 
 Existing infrastructure solves narrow slices: curated databases
