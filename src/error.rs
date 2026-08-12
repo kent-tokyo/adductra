@@ -1,3 +1,5 @@
+//! Adductra's public error type.
+
 use thiserror::Error;
 
 /// Public error type for Adductra. Library code never panics on

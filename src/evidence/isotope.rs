@@ -21,6 +21,9 @@ use crate::model::{
     NonNegativeF64, Observation, Provenance,
 };
 
+/// Evaluates isotope-labeling evidence: does the observed mass shift
+/// match the sum of expected shifts for an [`Observation`]'s
+/// [`crate::model::IsotopeLabel`]s?
 pub struct IsotopeEvidenceEvaluator {
     tolerance_da: f64,
 }

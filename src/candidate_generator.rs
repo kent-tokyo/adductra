@@ -5,7 +5,10 @@
 use crate::error::AdductraError;
 use crate::model::{AdductCandidate, Observation};
 
+/// Produces candidate DNA adducts for an observation. Implement this for
+/// each new candidate source (§8); v0.1 ships only [`UserSuppliedGenerator`].
 pub trait CandidateGenerator {
+    /// Generate candidates for `observation`.
     fn generate(&self, observation: &Observation) -> Result<Vec<AdductCandidate>, AdductraError>;
 }
 

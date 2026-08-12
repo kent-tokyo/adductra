@@ -85,6 +85,8 @@ impl Ranker {
     }
 }
 
+/// Whether one rendered [`ExplanationLine`] argues for, against, or is
+/// merely informational about (e.g. `Missing`/`NotApplicable`) a candidate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ExplanationPolarity {
     Supporting,
@@ -92,6 +94,8 @@ pub enum ExplanationPolarity {
     Informational,
 }
 
+/// One rendered line of a candidate's [`Explanation`], derived from a
+/// single piece of evidence.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ExplanationLine {
     pub polarity: ExplanationPolarity,

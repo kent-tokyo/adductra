@@ -5,7 +5,12 @@
 use crate::error::AdductraError;
 use crate::model::{AdductCandidate, Evidence, EvidenceStrength, Observation};
 
+/// Evaluates one evidence type for a candidate against an observation.
+/// Implement this for each new evidence kind (§9); existing evaluators
+/// and the ranking logic never need to change.
 pub trait EvidenceEvaluator {
+    /// Evaluate `candidate` against `observation`, returning zero or more
+    /// pieces of evidence (typically one per rule/check this evaluator owns).
     fn evaluate(
         &self,
         observation: &Observation,

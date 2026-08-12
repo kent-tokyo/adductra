@@ -1,3 +1,6 @@
+//! Adductra's core data model (§5): observations, candidates, evidence,
+//! assessments, and provenance.
+
 mod assessment;
 mod candidate;
 mod evidence;

@@ -25,6 +25,8 @@ use crate::model::{
 };
 use crate::rules::{FragmentRule, RuleExpectation, built_in_rules};
 
+/// Evaluates diagnostic-fragment and neutral-loss evidence from a
+/// [`FragmentRule`] set (built-in or caller-supplied).
 pub struct FragmentEvidenceEvaluator {
     rules: Vec<FragmentRule>,
 }

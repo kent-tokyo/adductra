@@ -19,6 +19,9 @@ pub const PROTON_MASS: f64 = 1.007_276_466_879;
 /// Mass of an electron (u).
 pub const ELECTRON_MASS: f64 = 0.000_548_579_909;
 
+/// An element that can appear in a DNA/nucleoside adduct formula or a
+/// common LC-MS ionization adduct — not a full periodic table (§13: no
+/// unneeded generality).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Element {
     H,

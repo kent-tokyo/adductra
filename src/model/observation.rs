@@ -7,6 +7,7 @@ use super::numeric::NonNegativeF64;
 use crate::error::AdductraError;
 use crate::mass_table::Element;
 
+/// One observed MS/MS product ion (m/z, optionally with intensity).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ProductIon {
     pub mz: NonNegativeF64,
@@ -99,6 +100,8 @@ impl IonAdductType {
     }
 }
 
+/// What was actually measured: precursor m/z, charge, ionization,
+/// optional product ions and isotope labels.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Observation {
     pub id: String,

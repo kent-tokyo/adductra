@@ -22,6 +22,7 @@ pub enum NucleobaseOrigin {
     Other(String),
 }
 
+/// A candidate DNA adduct under evaluation against an [`super::Observation`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AdductCandidate {
     pub id: String,
