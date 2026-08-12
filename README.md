@@ -49,9 +49,16 @@ ranking score as a calibrated probability.
 
 ## Status
 
-Pre-release, under active development. See `docs/landscape.md` for the
-Phase 0 design survey and `docs/benchmark.md` for what's been validated
-so far.
+[![Crates.io](https://img.shields.io/crates/v/adductra.svg)](https://crates.io/crates/adductra)
+
+v0.1.0, published to crates.io. Still under active development — see
+`docs/landscape.md` for the Phase 0 design survey, `docs/benchmark.md`
+for what's been validated so far, and `CHANGELOG.md` for release notes.
+
+```toml
+[dependencies]
+adductra = "0.1"
+```
 
 ## CLI
 
