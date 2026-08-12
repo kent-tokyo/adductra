@@ -177,6 +177,8 @@ fn render_detail(detail: &EvidenceDetail, matched: bool) -> String {
                     "isotope shift matched {label_count} labelled atom(s) (Δ {:.4} Da)",
                     expected_shift_da.get()
                 )
+            } else if label_count == &0 {
+                "no isotope label used".to_string()
             } else {
                 format!("expected isotope shift for {label_count} labelled atom(s) not observed")
             }

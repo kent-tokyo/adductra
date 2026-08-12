@@ -49,8 +49,21 @@ ranking score as a calibrated probability.
 
 ## Status
 
-Pre-release, under active development. See `ROADMAP.md` for phase progress
-and `docs/landscape.md` for the Phase 0 design survey.
+Pre-release, under active development. See `docs/landscape.md` for the
+Phase 0 design survey and `docs/benchmark.md` for what's been validated
+so far.
+
+## CLI
+
+```bash
+adductra rank    --observation obs.json --candidates candidates.json
+adductra explain --observation obs.json --candidates candidates.json --candidate-id 8-oxo-dG [--json]
+```
+
+`--observation` is a single JSON `Observation`, `--candidates` a JSON
+array of `AdductCandidate` — Adductra's own serde types, not a vendor
+spectrum format (`.mgf`/raw-format parsing is deliberately out of v0.1
+scope; see `src/bin/adductra.rs`'s module doc for the rationale).
 
 ## Ecosystem
 
