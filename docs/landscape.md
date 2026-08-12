@@ -81,19 +81,22 @@ prior art to avoid duplicating.
 Directly verified from this session (not just the research pass):
 `chematic` v0.14.0 is real, installable via `cargo add chematic`, and its
 `chem`/`smiles` module APIs described below were read from the actual
-downloaded source in `~/.cargo/registry/src/`. The version numbers,
-download counts, and module lists for `risksieve`, `veridict`, and
-`masstrust` below come from that single research pass and were **not**
-independently re-verified against the registry — treat them as
-directionally correct (existence, ownership, rough purpose) rather than
-exact.
+downloaded source in `~/.cargo/registry/src/`. `masstrust`'s actual CSV
+I/O schema (`crates/masstrust-core/src/{types,io}.rs`) was also directly
+read from its GitHub source (2026-08-12, via `gh api`) while building
+`examples/masstrust_handoff.rs` — see §Phase 7 and `docs/benchmark.md`.
+The version numbers, download counts, and module lists for `risksieve`
+and `veridict` below still come from the single research pass and were
+**not** independently re-verified against the registry — treat those two
+specifically as directionally correct (existence, ownership, rough
+purpose) rather than exact.
 
 | Crate | crates.io | GitHub | Status |
 |---|---|---|---|
 | `chematic` | v0.14.0, first published 2026-05-27, updated 2026-08-11 | `kent-tokyo/chematic` — targeting RDKit feature parity | Active, substantial |
 | `risksieve` | v0.2.1 (v0.1.0 released 2026-07-27) | `kent-tokyo/risksieve` | Active |
 | `veridict` | v0.19.0, first published 2026-07-04 | `kent-tokyo/veridict` | Active |
-| `masstrust` | not published | `kent-tokyo/masstrust`, Apache-2.0/MIT, 30 commits | Real, source-only |
+| `masstrust` | not published | `kent-tokyo/masstrust`, Apache-2.0/MIT | Real, source-only, CSV I/O schema directly verified |
 
 Public API surface (from crate docs / README):
 
@@ -114,7 +117,14 @@ Public API surface (from crate docs / README):
   verbs: `curve`, `calibrate`, `apply`, `compare`, `evaluate`, `drift`,
   `validate-split`, `certify-batch`. This is functionally the exact
   "confidence/calibration hand-off" sibling `AGENTS.md` §4 describes —
-  MS/MS-flavored but not DNA-adduct-specific.
+  MS/MS-flavored but not DNA-adduct-specific. Its real input schema
+  (`Candidate` struct, `crates/masstrust-core/src/types.rs`): CSV columns
+  `query_id`, `candidate_id`, `rank`, `score` are required; `probability`,
+  `smiles`, `inchikey`, `formula`, `target_inchikey`, `is_correct` are all
+  `Option` — several scoring methods (`ScoreGap`, `ScoreRatio`, `TopKGap`,
+  `CandidateCount`) work from `score` alone, so a hand-off from Adductra
+  never needs to fabricate a probability. See
+  `examples/masstrust_handoff.rs`.
 - **`veridict`** — modules `verdict`, `metrics`, `sprt`, `stats`, `report`,
   `matrix`, `plan`, `power`, `input`, `time_sensitive`, `verify_run`;
   win-rate/Elo/bootstrap-CI/SPRT statistical regression-gate library — fits
