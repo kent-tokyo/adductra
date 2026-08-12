@@ -1,7 +1,8 @@
 # Benchmark
 
 Implements the v0.1 milestone slice of `AGENTS.md` §15/§27 Phase 6.
-Sources: `tests/eight_oxo_dg_benchmark.rs`, `tests/afb1_n7_gua_benchmark.rs`.
+Sources: `tests/eight_oxo_dg_benchmark.rs`, `tests/afb1_n7_gua_benchmark.rs`,
+`tests/benchmark_corpus.rs`.
 
 ## Fixture 1: 8-oxo-2'-deoxyguanosine
 
@@ -85,10 +86,38 @@ contradictory-evidence cases    done (present-but-wrong fragment peaks;
                                  contradicted)
 ```
 
+## Corpus metrics (`tests/benchmark_corpus.rs`)
+
+Both fixtures above are re-assembled (small, independent copies of their
+observation/candidate setup — see that file's module doc for why it
+doesn't import from the two files above) into a 2-case corpus and scored
+against §15's metric list:
+
+```text
+top_1_accuracy=1.00  top_2_recall=1.00  mrr=1.00
+mean_margin=14.00  mean_evidence_coverage=0.83  candidate_reduction=0.40
+```
+
+(Numbers as of this writing — see the test's own `println!` output for
+current values; `cargo test --test benchmark_corpus -- --nocapture` to
+see them per-case.) `candidate_reduction` is defined here as the fraction
+of all candidates, across every case, with `ranking_score <= 0` — i.e.
+how much of the candidate set the evidence engine net-excludes.
+`corpus_metrics_meet_v01_baseline` asserts these stay at their current
+(already-correct) values, so a future regression in either fixture's
+ranking fails CI rather than silently drifting.
+
+Not using `veridict` for this (`docs/landscape.md` §3 earmarks it for
+exactly this role) — its real API reads as built for statistically
+comparing two ranking *configurations* across many trials (win-rate,
+bootstrap CI, SPRT), which isn't the shape of "compute MRR over 2
+known-answer cases." Worth revisiting once there's an actual A-vs-B
+ranking comparison to run (e.g. comparing two `Ranker` weight
+configurations).
+
 ## Not yet built
 
-Two hand-written fixtures, not the Phase 6 benchmark harness: no
-`top-1 accuracy` / `top-k recall` / `MRR` / `candidate reduction` /
-`ranking margin` / `evidence coverage` metrics computed across a corpus.
-That's the natural next step now that there are two independent cases to
-make a multi-case corpus meaningful — see `ROADMAP.md`.
+Only 2 reference cases — a third (independent of guanine-derived
+adducts) would meaningfully stress-test whether the evidence model
+generalizes, and would give the corpus metrics above more than 2 data
+points to be meaningful over.
